@@ -124,6 +124,17 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
     /// weekly windows move independently, and a single number hides which one is
     /// about to run out. The label has to stay narrow, so windows are joined with
     /// a middle dot and the unabbreviated reading lives in the tooltip.
+    ///
+    /// Every field is padded to the width its widest value needs, so the item's
+    /// width follows the number of windows and not the figures in them:
+    ///
+    ///     zai 100%·100% !!
+    ///     zai  59%· 47%  !
+    ///
+    /// Both are sixteen characters. Padding goes on the left of each field,
+    /// including the glyph, because a trailing space in a status item title is
+    /// something the layout may trim - and a trimmed last field is exactly the
+    /// jitter this is here to remove.
     public func menuBarLabel() -> String {
         switch state {
         case .loading:
@@ -131,10 +142,27 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
         case .error:
             return "\(tag) ?"
         case .live:
-            let percents = windows.compactMap(\.percent).map(PercentFormat.text)
+            // `map`, not `compactMap`: a window whose percent is unknown still
+            // occupies its field. Dropping it would move every figure after it
+            // and change the item's width, which is the jitter this label is
+            // built to avoid.
+            let percents = windows.map { PercentFormat.fixedWidth($0.percent) }
             guard !percents.isEmpty else { return "\(tag) …" }
-            return "\(tag) \(percents.joined(separator: "·")) \(verdict.glyph)"
+            let glyph = verdict.glyph
+            let glyphField = glyph.count >= Self.glyphWidth
+                ? glyph
+                : String(repeating: " ", count: Self.glyphWidth - glyph.count) + glyph
+            return "\(Self.tagField(tag)) \(percents.joined(separator: "·")) \(glyphField)"
         }
+    }
+
+    /// Widths of the label's fixed fields, each set by its widest value.
+    private static let tagWidth = 3
+    private static let glyphWidth = 2
+
+    private static func tagField(_ tag: String) -> String {
+        guard tag.count < tagWidth else { return tag }
+        return tag + String(repeating: " ", count: tagWidth - tag.count)
     }
 
     public static func placeholder(

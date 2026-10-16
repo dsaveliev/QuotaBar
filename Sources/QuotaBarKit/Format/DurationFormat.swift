@@ -43,6 +43,10 @@ public enum DurationFormat {
 }
 
 public enum PercentFormat {
+    /// The width `100%` needs, and the cap above makes it the widest a percent
+    /// can ever be.
+    public static let menuBarWidth = 4
+
     /// Percent text for display: nil -> "?", negative clamps to 0%, values over
     /// 999 clamp to "999%" so the longest text stays four characters wide.
     /// The underlying value used for bars and projections stays raw.
@@ -52,5 +56,16 @@ public enum PercentFormat {
         if percent >= 999 { return "999%" }
         let rounded = Int(percent.rounded())
         return "\(rounded)%"
+    }
+
+    /// The same text, right-aligned in the width its widest value needs, so a
+    /// menu bar item does not resize every time a figure gains a digit.
+    ///
+    /// Separate from `text` because the panel shows these figures flush left and
+    /// padding them there would indent everything.
+    public static func fixedWidth(_ percent: Double?) -> String {
+        let rendered = text(percent)
+        guard rendered.count < menuBarWidth else { return rendered }
+        return String(repeating: " ", count: menuBarWidth - rendered.count) + rendered
     }
 }

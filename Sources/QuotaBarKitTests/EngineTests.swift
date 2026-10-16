@@ -338,12 +338,61 @@ enum QuotaEngineTests {
             }
         }),
 
+        ("the item's width does not depend on its figures", {
+            // The whole point: crossing a digit boundary, or the verdict moving
+            // between one and two characters, must not change the length.
+            func label(percents: [Double?], verdict: Verdict) -> String {
+                SubscriptionSnapshot(
+                    id: "zai", tag: "zai", displayName: "Z.ai", state: .live,
+                    windows: percents.enumerated().map { index, percent in
+                        WindowSnapshot(
+                            label: index == 0 ? "5h" : "7d",
+                            percent: percent,
+                            usage: percent,
+                            limit: 100,
+                            verdict: verdict,
+                            resetInMs: 3_600_000,
+                            windowMs: 18_000_000,
+                            runway: RunwayResult(
+                                state: .ok, runwayMs: 7_200_000,
+                                resetInMs: 3_600_000, spanMs: 1_200_000
+                            )
+                        )
+                    },
+                    updatedAt: 1_700_000_000_000, lastAttemptAt: nil, stale: false,
+                    verdict: verdict, restored: false, endpoint: nil
+                ).menuBarLabel()
+            }
+
+            for verdict in [Verdict.ok, .tight, .short, .blocked, .unknown] {
+                for percents in [[9.0, 9.0], [59.0, 47.0], [100.0, 100.0], [5.0, 100.0]] {
+                    let text = label(percents: percents, verdict: verdict)
+                    Harness.expectEqual(
+                        text.count, 16, "\(percents) \(verdict) is \(text.debugDescription)"
+                    )
+                    Harness.expect(!text.hasSuffix(" "), "never ends on padding: \(text.debugDescription)")
+                }
+                // An unknown percent occupies its field too.
+                Harness.expectEqual(
+                    label(percents: [nil, 50.0], verdict: verdict).count, 16, "nil percent"
+                )
+            }
+
+            // A single-window subscription is its own fixed width.
+            Harness.expectEqual(
+                label(percents: [7.0], verdict: .ok).count,
+                label(percents: [100.0], verdict: .short).count,
+                "one window has one width of its own"
+            )
+            Harness.expectEqual(label(percents: [7.0], verdict: .ok), "zai   7%  ✓", "single window")
+        }),
+
         ("the label renders every window's percent, then the aggregate glyph", {
             let fixture = await EngineFixture.make(providers: [ZaiProvider()], respond: twoWindows)
             await fixture.engine.refresh(providerId: "zai")
             Harness.expectEqual(
                 fixture.published.snapshot(id: "zai")?.menuBarLabel(),
-                "zai 62%·41% ?",
+                "zai  62%· 41%  ?",
                 "both windows shown; ? because there is no verdict history yet"
             )
         }),
@@ -658,7 +707,7 @@ enum QuotaEngineTests {
             Harness.expectEqual(before?.restored, true, "and the snapshot says why")
             Harness.expectEqual(before?.stale, false, "no refresh was due yet, so not stale")
             Harness.expectEqual(
-                before?.menuBarLabel(), "zai 20% ?", "numbers now, glyph once confirmed"
+                before?.menuBarLabel(), "zai  20%  ?", "numbers now, glyph once confirmed"
             )
             Harness.expectEqual(before?.updatedAt, 1_700_000_000_000, "aged from when it was fetched")
 

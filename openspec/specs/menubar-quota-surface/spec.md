@@ -43,9 +43,12 @@ second item.
 
 The system SHALL render each item's label as the subscription tag, the consumed
 percent of every window the subscription reports, separated so they stay
-distinguishable, and a verdict glyph for the aggregate verdict. It SHALL attach
-to the item an unabbreviated explanation naming each window with its percent,
-the verdict in words, and the age of the data.
+distinguishable, and a verdict glyph for the aggregate verdict. That trailing
+glyph is the item's only verdict indicator: no second symbol is placed beside
+it. It SHALL attach to the item an unabbreviated explanation naming each window
+with its percent, the verdict in words, and the age of the data. Every field of
+the live label SHALL occupy a fixed width, so the item's width does not depend
+on the figures it is showing.
 
 #### Scenario: healthy label
 
@@ -75,6 +78,44 @@ the verdict in words, and the age of the data.
 - **WHEN** the aggregate verdict is `unknown`
 - **THEN** the label ends in `?` rather than presenting a number as if it were
   trustworthy
+
+#### Scenario: the verdict is stated once
+
+- **WHEN** a subscription's item is shown
+- **THEN** the verdict appears once, as the trailing glyph of the text, and no
+  leading image carries it a second time
+
+#### Scenario: the recovery item keeps a symbol
+
+- **WHEN** no subscription is selected and the item reads `QuotaBar`
+- **THEN** the item still shows its symbol, because that label carries no verdict
+  glyph to take the item's place
+
+#### Scenario: figures from before this launch
+
+- **WHEN** the app starts and a subscription has figures restored from a
+  previous run that no refresh this launch has confirmed yet
+- **THEN** its label shows those figures immediately and withholds the verdict,
+  reading `?` until the first live answer arrives
+
+#### Scenario: the item does not resize as figures change
+
+- **WHEN** a subscription's figures change from two digits to three, or its
+  verdict changes between a one-character and a two-character glyph
+- **THEN** the label's character count is unchanged, so the item keeps the same
+  width and the figures the user is reading do not shift sideways
+
+#### Scenario: each field reserves its widest value
+
+- **WHEN** a live label is rendered
+- **THEN** the provider tag occupies three characters, each percent four, and
+  the verdict glyph two, so the widest possible figures define the item's width
+
+#### Scenario: padding is never trailing
+
+- **WHEN** a live label is rendered
+- **THEN** the space reserved for a shorter figure precedes it rather than
+  following it, so the label ends on the verdict glyph
 
 ### Requirement: Label states
 
