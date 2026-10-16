@@ -1,0 +1,65 @@
+README.md
+  s_5a45552c11ce3d::t_aa199093410fff 1-232
+Sources/QuotaBar/WindowRowView.swift
+  s_5a45552c11ce3d::t_82b54b88d233d4 1-127
+Sources/QuotaBarKit/Engine/MenuBarItems.swift
+  s_5a45552c11ce3d::t_2b0b29654a3238 1-107
+Sources/QuotaBarKit/Engine/QuotaEngine.swift
+  s_5a45552c11ce3d::t_3e482c1042fedf 1-315
+Sources/QuotaBarKit/Engine/SubscriptionSnapshot.swift
+  s_5a45552c11ce3d::t_112b4c98cbb01e 1-164
+Sources/QuotaBarKit/Runway/Verdict.swift
+  s_5a45552c11ce3d::t_7497bf34d21541 1-127
+Sources/QuotaBarKitTests/EngineTests.swift
+  s_5a45552c11ce3d::t_4874c261d6d255 1-655
+Sources/QuotaBarKitTests/Harness.swift
+  s_2ecd5100f2fa1c::t_49316734d45ce4 1-171
+Sources/QuotaBarKitTests/NetTests.swift
+  s_2ecd5100f2fa1c::t_93174d21aa6664 1-193
+Sources/QuotaBarKitTests/ProviderTests.swift
+  s_2ecd5100f2fa1c::t_af0367c18c89e3 1-238
+Sources/QuotaBarKitTests/RunwayTests.swift
+  s_5a45552c11ce3d::t_88ae8d4fe6fcd0 1-303
+openspec/changes/archive/2026-10-16-menubar-surface-v3/specs/menubar-quota-surface/spec.md
+  s_5a45552c11ce3d::t_ffd7bf84433199 1-119
+openspec/changes/archive/2026-10-16-menubar-surface-v4/tasks.md
+  s_5a45552c11ce3d::t_e47bfd8e7202aa 1-29
+openspec/changes/archive/2026-10-16-runway-trust-threshold/design.md
+  s_5a45552c11ce3d::t_2e6198c2e0ad29 1-93
+openspec/changes/archive/2026-10-16-runway-trust-threshold/specs/runway-projection/spec.md
+  s_5a45552c11ce3d::t_684bd15006335d 1-109
+openspec/changes/archive/2026-10-16-runway-trust-threshold/tasks.md
+  s_5a45552c11ce3d::t_0e767d9a5003cf 1-25
+openspec/specs/menubar-quota-surface/spec.md
+  s_5a45552c11ce3d::t_6212ba03a6db1f 1-333
+openspec/specs/runway-projection/spec.md
+  s_5a45552c11ce3d::t_160a5f6d9c5739 1-281
+scripts/build-app.sh
+  s_2ecd5100f2fa1c::t_6067efc8791dcb 1-63
+scripts/uninstall.sh
+  s_2ecd5100f2fa1c::t_471deeade5165d 1-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "abf15e28321ef3c2c08e627c807280f23aa9a6e8",
+  "prompts": {},
+  "sessions": {
+    "s_2ecd5100f2fa1c": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ebc5733ecffe25ApjATxAQ3orR",
+        "model": "MiniMax-M3.1-Flash-Preview"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    },
+    "s_5a45552c11ce3d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee7ae2d3dffeIcfE32WjSkqCok",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
