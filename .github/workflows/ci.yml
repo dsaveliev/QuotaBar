@@ -16,7 +16,7 @@ jobs:
     name: Build, test, assemble
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Toolchain
         run: swift --version
