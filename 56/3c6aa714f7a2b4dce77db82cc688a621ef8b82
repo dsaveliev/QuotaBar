@@ -1,0 +1,41 @@
+.omp/commands/opsx-apply.md
+  s_5a45552c11ce3d::t_4f9841506c31aa 1-198
+.omp/commands/opsx-archive.md
+  s_5a45552c11ce3d::t_b4a27a90b11133 1-261
+.omp/commands/opsx-bulk-archive.md
+  s_5a45552c11ce3d::t_908ac8535bfb0b 1-370
+.omp/commands/opsx-continue.md
+  s_5a45552c11ce3d::t_e5d605e582e885 1-121
+.omp/commands/opsx-explore.md
+  s_5a45552c11ce3d::t_1351403e8bef6e 1-236
+.omp/commands/opsx-ff.md
+  s_5a45552c11ce3d::t_05f39be6bcd48f 1-121
+.omp/commands/opsx-new.md
+  s_5a45552c11ce3d::t_e95cde0a0068e7 1-80
+.omp/commands/opsx-onboard.md
+  s_5a45552c11ce3d::t_ece44a31c0624a 1-567
+.omp/commands/opsx-propose.md
+  s_5a45552c11ce3d::t_00cff74ff45e4b 1-167
+.omp/commands/opsx-sync.md
+  s_5a45552c11ce3d::t_2d4df1787ee825 1-283
+.omp/commands/opsx-update.md
+  s_5a45552c11ce3d::t_93583fa2dd0bd3 1-102
+.omp/commands/opsx-verify.md
+  s_5a45552c11ce3d::t_a31501270cb68c 1-212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "563c6aa714f7a2b4dce77db82cc688a621ef8b82",
+  "prompts": {},
+  "sessions": {
+    "s_5a45552c11ce3d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee7ae2d3dffeIcfE32WjSkqCok",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
