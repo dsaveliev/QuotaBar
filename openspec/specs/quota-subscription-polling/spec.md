@@ -83,7 +83,9 @@ write, log, or display it.
 
 The system SHALL probe a subscription's declared endpoints in order, use the
 first endpoint whose response reports success, and remember that choice for the
-lifetime of the app process.
+lifetime of the app process. Envelope success and payload emptiness are
+different questions: once a host's envelope is accepted, an empty payload is
+reported as no data rather than used to fall through to another host.
 
 #### Scenario: primary endpoint healthy
 
@@ -94,9 +96,17 @@ lifetime of the app process.
 #### Scenario: region fallback
 
 - **WHEN** MiniMax's international endpoint returns a payload whose
-  `base_resp.status_code` is non-zero, or which carries no usable plan entry
+  `base_resp.status_code` is non-zero
 - **THEN** the regional `api.minimax.cn` endpoint is probed, and if it succeeds
   it becomes the remembered endpoint for all later refreshes
+
+#### Scenario: an empty plan is not a region problem
+
+- **WHEN** the chosen endpoint reports envelope success but carries no quota
+  windows
+- **THEN** the subscription reports no data on that endpoint and does not probe
+  another host, because the host answered correctly and an empty plan is not a
+  regional failure
 
 #### Scenario: all endpoints fail
 
@@ -232,9 +242,10 @@ across renders.
 
 ### Requirement: Freshness and staleness
 
-The system SHALL age data by the wall-clock gap between the last refresh
-attempt and now, and SHALL flag data stale once that gap exceeds two refresh
-intervals.
+The system SHALL age data by the wall-clock gap between the last successful
+refresh and now, SHALL flag data stale once that gap exceeds two refresh
+intervals, and SHALL report a subscription whose refreshes are failing as an
+error rather than as stale data.
 
 #### Scenario: fresh data
 

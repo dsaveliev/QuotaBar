@@ -5,13 +5,15 @@ coding-plan allowance is left, and — the part that matters — **whether the
 current pace outlasts the window**.
 
 ```
-zai 52% ?          mmx 41% ✓
+zai 1%·52% ✓
 ```
 
-Both subscriptions are polled at once and independently of anything else on the
-machine. There is no editor, terminal agent, or OpenCode session involved: the
-app runs at login, reads your credentials from the file OpenCode already
-writes, and keeps two status items in the menu bar.
+One item, whichever provider you last selected. Both subscriptions are polled at
+once and independently of anything else on the machine: there is no editor,
+terminal agent, or OpenCode session involved. The app runs at login, reads your
+credentials from the file OpenCode already writes, and keeps a single status
+item in the menu bar. One entrance to the panel means there is never a question
+of which item a figure belongs to.
 
 Open a dropdown for the full picture:
 
@@ -21,12 +23,16 @@ just now · api.z.ai
 
 5h                              52%   !!
 ██████████████░░░░░░░░░░░░░░░░
-resets in 3h 12m        runs out in ~2h 5m (1h 7m short)
+resets in 3h 12m            runway ~2h 5m
+ends 1h 7m before the reset
 
 7d                              41%   ✓
 ██████████░░░░░░░░░░░░░░░░░░░░░░
-resets in 3d 4h          runs out in ~10d
+resets in 3d 4h            runway ~10d
 ```
+
+The runway line has the same shape whatever the verdict; a shortfall is said on
+the muted line beneath it, never by colouring the number.
 
 ## What the numbers mean
 
@@ -55,9 +61,11 @@ Runway is a burn-rate projection, not a guess:
 3. `runway = (limit − usage) ÷ burn rate`, compared against `reset − now`.
 4. A verdict needs evidence proportional to the window: at least **1/20 of its
    own duration**. A five-hour window therefore needs fifteen minutes and a
-   weekly one about eight hours. Until then the glyph is `?` and the panel reads
-   `runway measuring… <n>% of the evidence it needs` rather than a projection
-   drawn from too little. Without this the weekly window reported itself as
+   weekly one about eight hours. Until then the glyph is `?`, the panel's runway
+   line reads `runway measuring…`, and the muted line beneath it says how far
+   along the wait is — e.g. `measuring 68% of the evidence it needs`, because a
+   bare "wait" reads as a hang. Without this the weekly window reported itself
+   as
    `short` minutes after launch — a fifteen-minute extrapolation across seven
    days, which is noise, not a warning.
 5. Exhaustion never waits: a window at its limit reads `✗` immediately.
@@ -132,23 +140,23 @@ That unloads the agent and deletes the bundle. Your sample history in
 `~/Library/Application Support/QuotaBar` is left alone; delete that directory
 too if you want a clean slate.
 
-## Choosing which providers to show
+## Choosing which provider to show
 
-Every panel has a **Providers** section at the bottom:
+Every panel carries a **provider** picker in its footer:
 
 ```
-Providers
-☑ Z.ai                 52%
-☑ MiniMax              42%
+provider  [ Z.ai        ▾ ]
 ```
 
-Ticking or unticking one puts its menu bar item there immediately — no restart,
-and the panel stays open. A hidden provider keeps polling and keeps its sample
-history; only its menu bar item disappears.
+It is a single-selection control, not a checklist, and that is deliberate: a
+checklist can express "two providers shown, one displayed", which is exactly
+the state that leaves you unsure which provider a figure belongs to. Switching
+switches the menu bar item immediately — no restart, and the panel stays open.
+Both subscriptions keep polling and keep their sample history either way, so
+switching back costs nothing.
 
-Untick everything and a single `QuotaBar` item stays in the menu bar whose
-panel is just the picker, so you can always bring providers back. You are never
-left unable to reach the app.
+Pick **Show none** and the menu bar item becomes a plain `QuotaBar` whose panel
+is just the picker. You are never left without a way back.
 
 The choice is remembered across restarts.
 
@@ -158,7 +166,7 @@ Each panel carries its own controls, so they are always one click away:
 
 - **Refresh** — refresh both subscriptions immediately.
 - **every** — the polling cadence: 30s, 60s, 2m, 5m, or 15m.
-- **Providers** — the picker described above.
+- **provider** — the picker described above, `Show none` included.
 - **Quit** — the app exits and stays out until you start it again.
 
 A panel also refreshes on open when the data on screen is older than the
@@ -171,8 +179,8 @@ current cadence.
 | Label reads `zai ?` | the last refresh failed; open the dropdown for the reason |
 | Label reads `zai …` | no successful refresh yet |
 | `no token (zai login or ZAI_TOKEN)` | nothing in `auth.json` and no env var |
-| `HTTP 401` / `HTTP 403` | the stored token is rejected by the provider |
-| `no data` | the endpoint answered but carried no quota windows |
+| `http-401` / `http-403` | the stored token is rejected by the provider |
+| `empty` | the endpoint's envelope succeeded but carried no quota windows |
 | `timeout` / `network error` | the endpoint did not answer in time |
 | `stale` in the header | refreshes stopped landing for more than two intervals |
 
@@ -193,13 +201,14 @@ Sources/
   QuotaBarKitTests/     the test suite (see below)
 ```
 
-Two design notes worth knowing before changing things:
+Four design notes worth knowing before changing things:
 
 - **The engine is an actor, and that is load-bearing.** While a subscription's
   refresh is in flight, further triggers (timer, panel open, Refresh) join that
   same request instead of starting another. The deduplication is an invariant of
   the actor, not a guard scattered across call sites.
-- **The menu bar is reconciled, not declared.** Status items are `NSStatusItem`s
+- **The menu bar is reconciled, not declared.** The status item is an
+  `NSStatusItem`
   created and removed to match the current selection, rather than SwiftUI
   `MenuBarExtra` slots bound to `isInserted:`. A variable number of scene slots
   was observed to drop an item silently; here a missing item is a visible bug in
@@ -210,7 +219,7 @@ Two design notes worth knowing before changing things:
   complain in, so every change to the set of items is written to
   `~/Library/Logs/QuotaBar/quotabar.err.log` as `menu bar: …`.
 - **Envelope success and payload emptiness are different questions.** A 200
-  whose body reports no windows is `no data`, not a reason to probe the next
+  whose body reports no windows is `empty`, not a reason to probe the next
   host; only a genuine envelope failure (a MiniMax `base_resp.status_code`
   that is non-zero, a Z.ai `code` at or above 400) falls through to the next
   endpoint.

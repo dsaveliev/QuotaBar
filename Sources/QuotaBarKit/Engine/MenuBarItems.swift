@@ -29,19 +29,19 @@ public enum MenuBarItems {
         providers: [any QuotaProvider],
         settings: Settings
     ) -> [Slot] {
-        let available = providers
-            .filter { !settings.isHidden($0.id) }
-            .sorted { $0.tag < $1.tag }
+        let available = providers.sorted { $0.tag < $1.tag }
         guard !available.isEmpty else { return [.recovery] }
 
-        if let selected = settings.selectedProviderId,
-           available.contains(where: { $0.id == selected }) {
-            return [.subscription(selected)]
-        }
-        if let selected = settings.selectedProviderId, selected.isEmpty {
+        switch settings.selection {
+        case .none:
             return [.recovery]
+        case .provider(let id) where available.contains(where: { $0.id == id }):
+            return [.subscription(id)]
+        // `.automatic`, and a recorded selection naming a provider this build no
+        // longer offers: the bar must not go empty while anything is available.
+        case .automatic, .provider:
+            return [.subscription(available[0].id)]
         }
-        return [.subscription(available[0].id)]
     }
 
     /// System symbol that encodes a verdict, as a template image so macOS

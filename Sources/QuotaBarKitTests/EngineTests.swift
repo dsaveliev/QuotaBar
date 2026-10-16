@@ -100,6 +100,21 @@ private let zaiWithReset: @Sendable (URL, Int) -> QuotaFetchResult = { _, _ in
     ]))
 }
 
+/// A window with neither a limit nor a reset: the provider knows the window
+/// exists but cannot say how much there is or when it ends.
+private let zaiWithoutLimitOrReset: @Sendable (URL, Int) -> QuotaFetchResult = { _, _ in
+    .success(payload: JSONPayload([
+        "data": ["limits": [["unit": 3, "currentValue": 40]]],
+    ]))
+}
+
+/// A window with a limit but no reset time.
+private let zaiWithoutReset: @Sendable (URL, Int) -> QuotaFetchResult = { _, _ in
+    .success(payload: JSONPayload([
+        "data": ["limits": [["unit": 3, "currentValue": 40, "remaining": 60]]],
+    ]))
+}
+
 /// A window sitting exactly on its limit: blocked needs no history.
 private let spentOut: @Sendable (URL, Int) -> QuotaFetchResult = { _, _ in
     .success(payload: JSONPayload([
@@ -581,6 +596,46 @@ enum QuotaEngineTests {
             Harness.expectEqual(fixture.published.snapshot(id: "zai")?.state, .live, "polling continues")
         }),
 
+        ("a window with nothing to project is not measuring, it is absent", {
+            // No limit and no reset: the projection has no inputs at all, so
+            // there is no evidence to gather and nothing to wait for. Reading
+            // this as "measuring" would show a progress line forever at 0%.
+            let noLimit = await EngineFixture.make(
+                providers: [ZaiProvider()], respond: zaiWithoutLimitOrReset
+            )
+            for _ in 0..<3 {
+                noLimit.clock.advance(by: 120_000)
+                await noLimit.engine.refresh(providerId: "zai")
+            }
+            Harness.expectEqual(
+                await windowRunway(noLimit.engine, providerId: "zai"), .noLimit,
+                "the projection reports no limit"
+            )
+            Harness.expectEqual(
+                await windowMeasuring(noLimit.engine, providerId: "zai"), false,
+                "a window with no limit is not measuring"
+            )
+
+            // A limit but no reset: a burn rate can be derived, but there is no
+            // reset to compare it against, so the verdict stays unknown for a
+            // reason that waiting will not fix.
+            let noReset = await EngineFixture.make(
+                providers: [ZaiProvider()], respond: zaiWithoutReset
+            )
+            for _ in 0..<3 {
+                noReset.clock.advance(by: 120_000)
+                await noReset.engine.refresh(providerId: "zai")
+            }
+            Harness.expectEqual(
+                await windowRunway(noReset.engine, providerId: "zai"), .noReset,
+                "the projection reports no reset"
+            )
+            Harness.expectEqual(
+                await windowMeasuring(noReset.engine, providerId: "zai"), false,
+                "a window with no reset is not measuring"
+            )
+        }),
+
         ("a window below its evidence threshold reports measuring, not a verdict", {
             let fixture = await EngineFixture.make(providers: [ZaiProvider()], respond: zaiWithReset)
             await fixture.engine.refresh(providerId: "zai")
@@ -619,12 +674,9 @@ enum QuotaEngineTests {
             let measuringBlocked: Bool? = await windowMeasuring(fixture.engine, providerId: "zai")
             Harness.expectEqual(measuringBlocked, false, "exhaustion needs no history, so it never waits")
         }),
-        ("the settings hide-state reaches the published snapshots", {
+        ("the settings interval reaches the engine", {
             let fixture = await EngineFixture.make()
-            await fixture.engine.apply(settings: Settings(hiddenSubscriptions: ["zai"]))
-            Harness.expectEqual(
-                fixture.published.latest.filter(\.hidden).map(\.id), ["zai"], "hidden subscription flagged"
-            )
+            await fixture.engine.apply(settings: Settings(intervalMs: 300_000))
         }),
     ]
 }

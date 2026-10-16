@@ -28,43 +28,24 @@ enum SettingsTests {
             settings.clamp()
             Harness.expectEqual(settings.intervalMs, 300_000, "unchanged")
         }),
-        ("hiding is allowed even for the last shown subscription", {
-            var settings = Settings()
-            settings.setHidden(true, providerId: "zai")
-            Harness.expectEqual(settings.hiddenSubscriptions, ["zai"], "first hide")
-
-            settings.setHidden(true, providerId: "minimax")
-            Harness.expectEqual(
-                settings.hiddenSubscriptions, ["zai", "minimax"],
-                "hiding every subscription is permitted; the surface keeps a recovery item"
-            )
-
-            settings.setHidden(false, providerId: "zai")
-            Harness.expectEqual(settings.hiddenSubscriptions, ["minimax"], "re-enabled")
-        }),
-        ("hiding an already hidden subscription is a no-op", {
-            var settings = Settings(hiddenSubscriptions: ["zai"])
-            settings.setHidden(true, providerId: "zai")
-            Harness.expectEqual(settings.hiddenSubscriptions, ["zai"], "unchanged")
-        }),
-        ("a full-hide selection round-trips through the store", {
+        ("a show-none selection round-trips through the store", {
             let file = MemoryFile()
             let store = SettingsStore(url: URL(fileURLWithPath: "/dev/null"), readFile: file.read, writeFile: file.write)
-            store.save(Settings(intervalMs: 60_000, hiddenSubscriptions: ["zai", "minimax"]))
+            store.save(Settings(intervalMs: 60_000, selection: .none))
             let loaded = store.load()
-            Harness.expectEqual(loaded.hiddenSubscriptions, ["zai", "minimax"], "selection preserved verbatim")
+            Harness.expectEqual(loaded.selection, .none, "choice preserved verbatim")
             Harness.expectEqual(
                 MenuBarItems.desired(providers: [ZaiProvider(), MiniMaxProvider()], settings: loaded),
-                [.recovery], "a fully hidden app shows only the recovery item"
+                [.recovery], "an app showing nothing keeps only the recovery item"
             )
         }),
         ("settings round-trip through the store", {
             let file = MemoryFile()
             let store = SettingsStore(url: URL(fileURLWithPath: "/dev/null"), readFile: file.read, writeFile: file.write)
-            store.save(Settings(intervalMs: 300_000, hiddenSubscriptions: ["zai"]))
+            store.save(Settings(intervalMs: 300_000, selection: .provider("minimax")))
             let loaded = store.load()
             Harness.expectEqual(loaded.intervalMs, 300_000, "interval")
-            Harness.expectEqual(loaded.hiddenSubscriptions, ["zai"], "hidden set")
+            Harness.expectEqual(loaded.selection, .provider("minimax"), "selection")
         }),
         ("a missing settings file loads the defaults", {
             let store = SettingsStore(
@@ -75,11 +56,11 @@ enum SettingsTests {
             Harness.expectEqual(store.load(), Settings(), "defaults")
         }),
         ("a corrupt settings file is clamped rather than rejected", {
-            let file = MemoryFile(Data(#"{"intervalMs": "not-a-number", "hiddenSubscriptions": [1, 2]}"#.utf8))
+            let file = MemoryFile(Data(#"{"intervalMs": "not-a-number", "selection": 7}"#.utf8))
             let store = SettingsStore(url: URL(fileURLWithPath: "/dev/null"), readFile: file.read, writeFile: file.write)
             let loaded = store.load()
             Harness.expectEqual(loaded.intervalMs, Settings.defaultIntervalMs, "interval falls back")
-            Harness.expectEqual(loaded.hiddenSubscriptions, [], "hidden set falls back")
+            Harness.expectEqual(loaded.selection, .automatic, "a non-string selection falls back")
         }),
         ("saving clamps so a corrupt value can never reach the poll loop", {
             let file = MemoryFile()
@@ -226,7 +207,7 @@ enum MenuBarItemsTests {
         }),
         ("the selection decides which single provider is shown", {
             for id in ["minimax", "zai"] {
-                let settings = Settings(selectedProviderId: id)
+                let settings = Settings(selection: .provider(id))
                 Harness.expectEqual(
                     MenuBarItems.desired(providers: providers, settings: settings),
                     [.subscription(id)],
@@ -234,38 +215,61 @@ enum MenuBarItemsTests {
                 )
             }
         }),
-        ("hiding the selected provider falls back to one that is available", {
-            let settings = Settings(
-                hiddenSubscriptions: ["minimax"],
-                selectedProviderId: "minimax"
-            )
+        ("a selection naming an unavailable provider falls back rather than emptying the bar", {
+            let settings = Settings(selection: .provider("ghost"))
             Harness.expectEqual(
                 MenuBarItems.desired(providers: providers, settings: settings),
-                [.subscription("zai")],
-                "selected provider is gone, zai stands in"
+                [.subscription("minimax")],
+                "an id this build does not offer is inert"
             )
+        }),
+        ("no preference yet shows the first available provider", {
+            Harness.expectEqual(
+                MenuBarItems.desired(providers: providers, settings: Settings()),
+                [.subscription("minimax")],
+                "a fresh install shows something rather than nothing"
+            )
+        }),
+        ("choosing Show none yields the recovery slot", {
+            // The regression: the picker passes nil for "Show none", and that
+            // used to be indistinguishable from "no preference", so the choice
+            // silently fell back to the first provider.
+            var settings = Settings()
+            settings.selectProvider(nil)
+            Harness.expectEqual(settings.selection, .none, "nil from the picker means show none")
+            Harness.expectEqual(
+                MenuBarItems.desired(providers: providers, settings: settings),
+                [.recovery],
+                "recovery slot"
+            )
+        }),
+        ("Show none is a choice, and a later pick replaces it", {
+            var settings = Settings()
+            settings.selectProvider(nil)
+            settings.selectProvider("zai")
+            Harness.expectEqual(settings.selection, .provider("zai"), "picking again overrides none")
+            settings.selectProvider(nil)
+            Harness.expectEqual(settings.selection, .none, "and back again")
         }),
         ("selecting none yields the recovery slot", {
-            let settings = Settings(selectedProviderId: "")
+            let settings = Settings(selection: .none)
             Harness.expectEqual(
                 MenuBarItems.desired(providers: providers, settings: settings),
                 [.recovery],
                 "recovery slot"
             )
         }),
-        ("hiding everything yields the recovery slot whatever is selected", {
-            let settings = Settings(
-                hiddenSubscriptions: ["zai", "minimax"],
-                selectedProviderId: "zai"
-            )
-            Harness.expectEqual(
-                MenuBarItems.desired(providers: providers, settings: settings),
-                [.recovery],
-                "recovery slot"
-            )
+        ("nothing available yields the recovery slot whatever is selected", {
+            for selection in [ProviderSelection.none, .provider("zai"), .automatic] {
+                Harness.expectEqual(
+                    MenuBarItems.desired(providers: [], settings: Settings(selection: selection)),
+                    [.recovery],
+                    "recovery slot for \(selection)"
+                )
+            }
         }),
         ("an unknown selection falls back rather than producing an empty item", {
-            let settings = Settings(selectedProviderId: "ghost")
+            let settings = Settings(selection: .provider("ghost"))
             Harness.expectEqual(
                 MenuBarItems.desired(providers: providers, settings: settings),
                 [.subscription("minimax")],
@@ -292,7 +296,7 @@ enum MenuBarItemsTests {
             Harness.expect(!MenuBarItems.label(for: .recovery, snapshot: nil).contains("%"), "no fake number")
         }),
         ("the tooltip spells out each window and the verdict in words", {
-            let snapshot = SubscriptionSnapshot.placeholder(provider: ZaiProvider(), hidden: false)
+            let snapshot = SubscriptionSnapshot.placeholder(provider: ZaiProvider())
             let live = SubscriptionSnapshot(
                 id: snapshot.id,
                 tag: snapshot.tag,
@@ -311,7 +315,7 @@ enum MenuBarItemsTests {
                     ),
                 ],
                 updatedAt: nil, lastAttemptAt: nil, stale: false,
-                verdict: .short, hidden: false, endpoint: nil
+                verdict: .short, endpoint: nil
             )
             let text = MenuBarItems.explanation(for: .subscription("zai"), snapshot: live)
             Harness.expect(text.contains("5h 7%"), "five-hour window named")
@@ -324,7 +328,7 @@ enum MenuBarItemsTests {
             Harness.expect(text.contains("choose"), "states the way out")
         }),
         ("a subscription slot renders that subscription's label", {
-            let snapshot = SubscriptionSnapshot.placeholder(provider: ZaiProvider(), hidden: false)
+            let snapshot = SubscriptionSnapshot.placeholder(provider: ZaiProvider())
             Harness.expectEqual(
                 MenuBarItems.label(for: .subscription("zai"), snapshot: snapshot), "zai …", "placeholder label"
             )
@@ -335,22 +339,48 @@ enum MenuBarItemsTests {
         ("the selected provider survives a save and load", {
             let file = MemoryFile()
             let store = SettingsStore(url: URL(fileURLWithPath: "/dev/null"), readFile: file.read, writeFile: file.write)
-            store.save(Settings(intervalMs: 60_000, selectedProviderId: "zai"))
-            Harness.expectEqual(store.load().selectedProviderId, "zai", "selection persisted")
+            store.save(Settings(intervalMs: 60_000, selection: .provider("zai")))
+            Harness.expectEqual(store.load().selection, .provider("zai"), "selection persisted")
 
-            store.save(Settings(intervalMs: 60_000, selectedProviderId: nil))
-            Harness.expectEqual(store.load().selectedProviderId, nil, "absent when not selected")
+            store.save(Settings(intervalMs: 60_000, selection: .none))
+            Harness.expectEqual(store.load().selection, .none, "show none is persisted as a choice")
+
+            store.save(Settings(intervalMs: 60_000, selection: .automatic))
+            Harness.expectEqual(store.load().selection, .automatic, "absent when no preference")
         }),
-        ("a settings file written before the selection existed still loads", {
-            let file = MemoryFile(Data(#"{"intervalMs": 60000, "hiddenSubscriptions": []}"#.utf8))
-            let store = SettingsStore(url: URL(fileURLWithPath: "/dev/null"), readFile: file.read, writeFile: file.write)
+        ("a settings file from the multi-select era still loads", {
+            // `hiddenSubscriptions` is ignored on purpose: it described a
+            // selection model that no longer exists, and the first provider
+            // standing in is the same thing a fresh install does.
+            let file = MemoryFile(
+                Data(#"{"intervalMs": 60000, "hiddenSubscriptions": ["zai", "minimax"]}"#.utf8)
+            )
+            let store = SettingsStore(
+                url: URL(fileURLWithPath: "/dev/null"), readFile: file.read, writeFile: file.write
+            )
             let loaded = store.load()
-            Harness.expectEqual(loaded.selectedProviderId, nil, "absent, not invented")
+            Harness.expectEqual(loaded.selection, .automatic, "no selection invented out of a hidden list")
             Harness.expectEqual(
                 MenuBarItems.desired(providers: MenuBarItemsTests.providers, settings: loaded),
                 [.subscription("minimax")],
                 "and resolves to a provider rather than nothing"
             )
+        }),
+        ("a pre-selection file that recorded an empty id means show none", {
+            // The old writer spelled "show none" as an empty string. Reading it
+            // as "no preference" is exactly the bug being fixed here.
+            let file = MemoryFile(Data(#"{"intervalMs": 60000, "selectedProviderId": ""}"#.utf8))
+            let store = SettingsStore(
+                url: URL(fileURLWithPath: "/dev/null"), readFile: file.read, writeFile: file.write
+            )
+            Harness.expectEqual(store.load().selection, .none, "empty id is the show-none sentinel")
+        }),
+        ("a pre-selection file with a real id still selects that provider", {
+            let file = MemoryFile(Data(#"{"intervalMs": 60000, "selectedProviderId": "zai"}"#.utf8))
+            let store = SettingsStore(
+                url: URL(fileURLWithPath: "/dev/null"), readFile: file.read, writeFile: file.write
+            )
+            Harness.expectEqual(store.load().selection, .provider("zai"), "carried over")
         }),
     ]
 }

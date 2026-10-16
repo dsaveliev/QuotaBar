@@ -54,7 +54,7 @@ final class AppModel: ObservableObject {
             home: home
         )
         self.snapshots = ProviderRegistry.all.map {
-            SubscriptionSnapshot.placeholder(provider: $0, hidden: loaded.isHidden($0.id))
+            SubscriptionSnapshot.placeholder(provider: $0)
         }
     }
 
@@ -91,15 +91,20 @@ final class AppModel: ObservableObject {
 
     // MARK: - Derived state
 
-    /// Snapshots whose menu bar item should exist, in stable tag order.
-    var visible: [SubscriptionSnapshot] {
-        snapshots.filter { !$0.hidden }
+    /// The subscription the menu bar item shows, or nil when the user chose to
+    /// show none. Resolved through `MenuBarItems.desired` so the rule for what
+    /// belongs in the bar lives in exactly one place.
+    var shown: SubscriptionSnapshot? {
+        guard case .subscription(let id) = MenuBarItems.desired(
+            providers: ProviderRegistry.all, settings: settings
+        ).first else { return nil }
+        return snapshots.first { $0.id == id }
     }
 
-    var visibleCount: Int { visible.count }
+    var shownCount: Int { shown == nil ? 0 : 1 }
 
     func snapshot(forSlot slot: Int) -> SubscriptionSnapshot? {
-        visible.indices.contains(slot) ? visible[slot] : nil
+        slot == 0 ? shown : nil
     }
 
     func isSlotInserted(_ slot: Int) -> Bool {
@@ -159,28 +164,19 @@ final class AppModel: ObservableObject {
         scheduleTimer()
     }
 
-    /// The provider the single menu bar item and the panel are showing, or nil
-    /// when the user has chosen to show none.
+    /// The provider the picker should show as current, or nil for `Show none`.
     var selectedProviderId: String? {
-        settings.selectedProviderId
+        switch settings.selection {
+        case .none: return nil
+        case .provider(let id): return id
+        case .automatic: return shown?.id
+        }
     }
 
     /// Choose which provider the panel and menu bar item show.
     func selectProvider(_ providerId: String?) {
         var updated = settings
         updated.selectProvider(providerId)
-        guard updated != settings else { return }
-        settings = updated
-        store.save(updated)
-        Task { [engine] in await engine.apply(settings: updated) }
-    }
-
-    /// Toggle one subscription's menu bar item. Hiding every subscription is
-    /// allowed: the host then shows a single recovery item whose panel is the
-    /// picker, so the user is never stranded without a way back.
-    func setHidden(_ hidden: Bool, id: String) {
-        var updated = settings
-        updated.setHidden(hidden, providerId: id)
         guard updated != settings else { return }
         settings = updated
         store.save(updated)

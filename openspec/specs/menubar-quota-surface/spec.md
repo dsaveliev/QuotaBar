@@ -1,9 +1,9 @@
 # menubar-quota-surface Specification
 
 ## Purpose
-Defines what the user actually sees in the macOS menu bar: one compact status
-item per subscription, the dropdown that carries the full picture, and the
-controls the user has there.
+Defines what the user actually sees in the macOS menu bar: a single compact
+status item for the selected subscription, the dropdown that carries the full
+picture, and the controls the user has there.
 
 ## Requirements
 
@@ -78,9 +78,11 @@ the verdict in words, and the age of the data.
 
 ### Requirement: Label states
 
-The system SHALL show a distinct label for each of the data states — live,
-loading, error, and missing credential — and SHALL keep the subscription's tag
-visible in every one of them.
+The system SHALL show a distinct label for each of the three data states — live,
+loading, and error — and SHALL keep the subscription's tag visible in every one
+of them. A missing credential SHALL be an error state like any other, with the
+dropdown rather than the label naming which credential is missing and where it
+is looked up, so the label stays narrow enough to read at a glance.
 
 #### Scenario: before the first refresh completes
 
@@ -96,18 +98,16 @@ visible in every one of them.
 #### Scenario: missing credential
 
 - **WHEN** no credential resolves for a subscription
-- **THEN** its label indicates the setup problem instead of a percent, and the
-  dropdown states which credential is missing and where it is looked up
+- **THEN** its label shows the error state's question mark rather than a
+  percent, and the dropdown states which credential is missing and where it is
+  looked up
 
 ### Requirement: Dropdown content
 
-The system SHALL open the panel to a header identifying the displayed
-subscription with its verdict glyph and how long ago the data was fetched, one
-row per quota window laid out as a horizontal line with its label, a proportional
-usage bar, the consumed percent, the verdict glyph, the time until reset, and
-the projected runway, and a controls footer containing the provider picker, a
-refresh control, the interval setting, and a quit control. The header SHALL NOT
-repeat the per-window figures that the rows below already carry.
+The system SHALL compose the panel from a header identifying the displayed
+subscription, one row per quota window laid out horizontally, and a controls
+footer. The header SHALL NOT repeat the per-window figures that the rows below
+already carry.
 
 #### Scenario: per-window block
 
@@ -230,38 +230,6 @@ SHALL apply the new interval to the next scheduled refresh without a restart.
   supported maximum
 - **THEN** it is clamped into the supported range rather than accepted
 
-### Requirement: Item visibility
-
-The system SHALL let the user choose which subscriptions appear in the menu bar,
-SHALL keep hidden subscriptions polling and retaining their data, and SHALL
-always leave at least one menu bar item through which the user can change that
-choice again.
-
-#### Scenario: item hidden
-
-- **WHEN** the user unchecks a subscription in the provider picker
-- **THEN** its item disappears from the menu bar while the subscription keeps
-  refreshing, keeps its sample history, and its choice persists across restarts
-
-#### Scenario: hidden item still reachable
-
-- **WHEN** at least one subscription is shown
-- **THEN** the provider picker lists every subscription, including hidden ones,
-  and re-enabling one restores its menu bar item
-
-#### Scenario: last item hidden
-
-- **WHEN** the user unchecks the last shown subscription
-- **THEN** a single recovery item remains in the menu bar whose panel offers the
-  provider picker, so the user can bring subscriptions back without reinstalling
-  or editing a file
-
-#### Scenario: choice survives a restart
-
-- **WHEN** the app is relaunched after the user changed which subscriptions are
-  shown
-- **THEN** the menu bar shows exactly the subscriptions the user chose
-
 ### Requirement: Quit
 
 The system SHALL terminate cleanly on quit and persist settings and sample
@@ -328,24 +296,29 @@ when it is made.
 - **WHEN** the app is relaunched
 - **THEN** the previously selected provider, or the recovery state, is restored
 
-### Requirement: Menu bar item diagnostics
+### Requirement: Menu bar item logging
 
 The system SHALL write to its log every menu bar item it creates or removes,
 together with the item's label and its laid-out width, and SHALL rewrite that
 line whenever the set of items or their labels changes.
 
-#### Scenario: both providers present
+#### Scenario: the item is present
 
-- **WHEN** both subscriptions are shown and reporting
-- **THEN** the log names both items with their labels and a width greater than
-  zero, so a present item is distinguishable from one AppKit refused to lay out
+- **WHEN** a subscription is selected and reporting
+- **THEN** the log names the item with its label and a width greater than zero,
+  so a present item is distinguishable from one AppKit refused to lay out
 
-#### Scenario: item removed
+#### Scenario: the item follows the selection
 
-- **WHEN** the user hides a subscription
-- **THEN** the next log line no longer names that item
+- **WHEN** the user selects a different provider
+- **THEN** the next log line names the new item and no longer names the old one
+
+#### Scenario: the recovery item takes over
+
+- **WHEN** the user selects `Show none`
+- **THEN** the next log line names the recovery item instead of a subscription
 
 #### Scenario: log is quiet when nothing changes
 
-- **WHEN** refreshes land but the set of items and their labels are unchanged
+- **WHEN** refreshes land but the item and its label are unchanged
 - **THEN** no further menu bar line is written, so the log stays readable

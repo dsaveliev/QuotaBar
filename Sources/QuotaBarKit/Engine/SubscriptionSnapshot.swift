@@ -73,7 +73,6 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
     public var lastAttemptAt: EpochMillis?
     public var stale: Bool
     public var verdict: Verdict
-    public var hidden: Bool
     /// The endpoint currently in use, shown in the dropdown so a region
     /// fallback is visible rather than mysterious.
     public var endpoint: URL?
@@ -88,7 +87,6 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
         lastAttemptAt: EpochMillis?,
         stale: Bool,
         verdict: Verdict,
-        hidden: Bool,
         endpoint: URL?
     ) {
         self.id = id
@@ -100,7 +98,6 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
         self.lastAttemptAt = lastAttemptAt
         self.stale = stale
         self.verdict = verdict
-        self.hidden = hidden
         self.endpoint = endpoint
     }
 
@@ -136,8 +133,7 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
     }
 
     public static func placeholder(
-        provider: any QuotaProvider,
-        hidden: Bool
+        provider: any QuotaProvider
     ) -> SubscriptionSnapshot {
         SubscriptionSnapshot(
             id: provider.id,
@@ -149,7 +145,6 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
             lastAttemptAt: nil,
             stale: false,
             verdict: .unknown,
-            hidden: hidden,
             endpoint: nil
         )
     }

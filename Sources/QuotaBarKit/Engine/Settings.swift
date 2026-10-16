@@ -1,28 +1,30 @@
 import Foundation
 
 /// User-configurable settings, persisted between launches.
-public struct Settings: Codable, Sendable, Equatable {
+/// Persistence is hand-rolled in `SettingsStore` because the file has to
+/// survive being truncated, partially written, or edited by hand. Synthesised
+/// `Codable` would do none of that, so it is deliberately absent.
+public struct Settings: Sendable, Equatable {
     /// Supported refresh cadence range, in milliseconds.
     public static let minimumIntervalMs: Double = 10_000
     public static let maximumIntervalMs: Double = Double(Int32.max)
     public static let defaultIntervalMs: Double = 60_000
 
     public var intervalMs: Double
-    /// Provider ids the user has taken out of the menu bar.
-    public var hiddenSubscriptions: Set<String>
-    /// Which provider the single menu bar item and the panel are currently
-    /// showing. Absent means "no preference yet", which resolves to the first
-    /// provider that is not hidden.
-    public var selectedProviderId: String?
+    /// Which provider the single menu bar item and the panel show.
+    ///
+    /// Three states, not two. "No preference yet" and "the user chose to show
+    /// nothing" are different decisions that resolve differently, and they used
+    /// to share one representation - `nil` meaning both - which is why choosing
+    /// `Show none` silently fell back to the first provider.
+    public var selection: ProviderSelection
 
     public init(
         intervalMs: Double = Settings.defaultIntervalMs,
-        hiddenSubscriptions: Set<String> = [],
-        selectedProviderId: String? = nil
+        selection: ProviderSelection = .automatic
     ) {
         self.intervalMs = intervalMs
-        self.hiddenSubscriptions = hiddenSubscriptions
-        self.selectedProviderId = selectedProviderId
+        self.selection = selection
     }
 
     /// Clamps the interval into the supported range. A non-finite or
@@ -36,30 +38,25 @@ public struct Settings: Codable, Sendable, Equatable {
         intervalMs = min(Self.maximumIntervalMs, max(Self.minimumIntervalMs, intervalMs))
     }
 
-    /// Choose which provider the menu bar item and panel show. Passing nil
-    /// means "none", which leaves only the recovery item.
+    /// Choose which provider the menu bar item and panel show. Passing nil is
+    /// the picker's `Show none`, which leaves only the recovery item — it is a
+    /// choice the user made, not the absence of one.
     public mutating func selectProvider(_ providerId: String?) {
-        selectedProviderId = providerId
+        selection = providerId.map(ProviderSelection.provider) ?? .none
     }
+}
 
-    /// Hide or show a subscription's menu bar item.
-    ///
-    /// Hiding every subscription is permitted. The app stays reachable because
-    /// the surface keeps a single recovery item in the menu bar while nothing
-    /// is selected — refusing the last hide would answer a toggle's "yes" with a
-    /// silent "no", which is worse than letting the user empty the bar and
-    /// giving them an obvious way back.
-    public mutating func setHidden(_ hidden: Bool, providerId: String) {
-        if hidden {
-            hiddenSubscriptions.insert(providerId)
-        } else {
-            hiddenSubscriptions.remove(providerId)
-        }
-    }
+/// What the menu bar shows. See `Settings.selection`.
+public enum ProviderSelection: Equatable, Sendable {
+    /// Nothing recorded yet: show the first available provider.
+    case automatic
+    /// Show this provider.
+    case provider(String)
+    /// The user chose to show none; the surface falls back to a recovery item.
+    case none
 
-    public func isHidden(_ providerId: String) -> Bool {
-        hiddenSubscriptions.contains(providerId)
-    }
+    /// How "show none" is written to settings.json.
+    public static let noneKey = "none"
 }
 
 /// Reads and writes settings as JSON, tolerating a corrupt or partial file.
@@ -87,10 +84,16 @@ public struct SettingsStore: Sendable {
 
         var settings = Settings()
         if let interval = JSON.finiteNumber(root["intervalMs"]) { settings.intervalMs = interval }
-        if let hidden = root["hiddenSubscriptions"] as? [String] {
-            settings.hiddenSubscriptions = Set(hidden)
+        // `hiddenSubscriptions` is deliberately not read: it belonged to the
+        // removed multi-select surface, and ignoring it is the whole migration.
+        // `selectedProviderId` is read once, for settings written before
+        // `selection` existed, where an empty string already meant "show none".
+        if let selected = root["selection"] as? String {
+            settings.selection = selected == ProviderSelection.noneKey
+                ? .none : .provider(selected)
+        } else if let legacy = root["selectedProviderId"] as? String {
+            settings.selection = legacy.isEmpty ? .none : .provider(legacy)
         }
-        settings.selectedProviderId = root["selectedProviderId"] as? String
         settings.clamp()
         return settings
     }
@@ -98,12 +101,11 @@ public struct SettingsStore: Sendable {
     public func save(_ settings: Settings) {
         var clamped = settings
         clamped.clamp()
-        var payload: [String: Any] = [
-            "intervalMs": clamped.intervalMs,
-            "hiddenSubscriptions": clamped.hiddenSubscriptions.sorted(),
-        ]
-        if let selected = clamped.selectedProviderId {
-            payload["selectedProviderId"] = selected
+        var payload: [String: Any] = ["intervalMs": clamped.intervalMs]
+        switch clamped.selection {
+        case .automatic: break
+        case .provider(let id): payload["selection"] = id
+        case .none: payload["selection"] = ProviderSelection.noneKey
         }
         guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return }
         try? writeFile(data, url)

@@ -96,9 +96,10 @@ projecting anything.
 
 #### Scenario: single moving window
 
-- **WHEN** exactly one sample exists but its consumed amount is below the limit
-- **THEN** the window reports no burn rather than insufficient data, because a
-  flat reading cannot support a shortfall verdict
+- **WHEN** exactly one sample exists, however far below the limit its consumed
+  amount sits
+- **THEN** the window reports insufficient data, because a rate needs two
+  readings to divide
 
 ### Requirement: Runway projection
 
@@ -109,7 +110,7 @@ projection against the time remaining until the window resets.
 #### Scenario: projection outlasts the reset
 
 - **WHEN** the projected exhaustion time is at or after the reset time
-- **THEN** the window's runway is reported as safe with the projected duration
+- **THEN** the window's runway is reported as ok with the projected duration
 
 #### Scenario: projection outlasts the reset
 
@@ -248,8 +249,9 @@ approximation that collapses to whole days beyond two days.
 
 - **WHEN** the projection reports no burn, insufficient data, no limit, or no
   reset
-- **THEN** the row is annotated with a distinct marker for each of those four
-  cases rather than with a number
+- **THEN** the row says which of those four cases it is — no burn, insufficient
+  data, no limit, or no reset — rather than showing a number, so a missing
+  projection is never mistaken for a short one
 
 ### Requirement: Measuring state
 

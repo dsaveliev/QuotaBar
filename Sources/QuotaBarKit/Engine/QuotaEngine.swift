@@ -28,7 +28,6 @@ public actor QuotaEngine {
     private var intervalMs: Double = Settings.defaultIntervalMs
     private var tightFactor: Double = 1.5
     private var maxHistorySamples: Double = 120
-    private var hidden: Set<String> = []
     private var onChange: (@Sendable ([SubscriptionSnapshot]) -> Void)?
     private var now: @Sendable () -> EpochMillis
 
@@ -74,7 +73,6 @@ public actor QuotaEngine {
         var clamped = settings
         clamped.clamp()
         intervalMs = clamped.intervalMs
-        hidden = clamped.hiddenSubscriptions
         publish()
     }
 
@@ -240,10 +238,13 @@ public actor QuotaEngine {
                         )
                     )
                     // Measuring is "has a real span, has not watched long enough".
-                    // Too few samples to project at all reports noData, which is
-                    // a different state and must not be dressed up as progress.
+                    // Three exclusions, each a different reason there is nothing
+                    // to measure: noData has too few samples, noLimit and
+                    // noReset have nothing to project in the first place and
+                    // carry no span at all, and blocked is already decided.
                     let required = VerdictClassifier.minimumSpanMs(forWindow: row.windowMs)
                     let isMeasuring = runway.state != .noData
+                        && runway.spanMs != nil
                         && (runway.spanMs ?? 0) < required
                         && verdict != .blocked
                     let fraction = required > 0
@@ -282,7 +283,6 @@ public actor QuotaEngine {
                     lastAttemptAt: state.lastAttemptAt,
                     stale: stale,
                     verdict: VerdictClassifier.worst(windows.map(\.verdict)),
-                    hidden: hidden.contains(state.provider.id),
                     endpoint: state.stickyEndpoint ?? state.provider.endpoints.first
                 )
             }
