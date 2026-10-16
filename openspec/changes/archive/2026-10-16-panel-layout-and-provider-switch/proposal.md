@@ -1,5 +1,13 @@
 # Proposal
 
+> **Archived with no spec delta applied.** Four later changes
+> (`fixed-width-menu-bar-label`, `label-is-tag-and-verdict`,
+> `glyph-field-reserved`, `figures-lead-label`) rewrote the requirements this
+> change touched, so replaying this delta would have deleted nine scenarios they
+> added. The behaviour asked for here is in `openspec/specs/`, delivered by
+> those later changes; the delta file has been removed rather than left to fail
+> on archive. `skip_specs` is set, with the reasoning in `.openspec.yaml`.
+
 ## Why
 
 The panel is wider than its content needs, its controls do not line up, and

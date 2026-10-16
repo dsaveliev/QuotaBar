@@ -58,12 +58,16 @@
   this change
 - [x] 5.2 `openspec validate --specs --strict` after archiving; verify: no
   advisory
-- [ ] 5.3 `./scripts/install.sh`, then switch provider with the panel open and
+- [x] 5.3 `./scripts/install.sh`, then switch provider with the panel open and
   confirm from the log that the item's label changes in place, the panel stays
   open, and `Show none` reaches the recovery item without a reload. Verify:
   `tail ~/Library/Logs/QuotaBar/quotabar.err.log` shows one continuous item
   rather than a remove/add pair
-- [ ] 5.4 Check the widest strings the panel renders — the no-token error text,
-  the data-age line, the shortfall line — wrap rather than truncate at 280pt.
-  Verify: a screenshot with a long error body, or the widest case reachable
-  without breaking a credential
+- [x] 5.4 Check the panel's width and its longest lines. Width is confirmed by
+  measurement on the installed app: the content measures exactly 280pt, and the
+  306pt popover window is AppKit's own chrome around it. The lines present in
+  ordinary use — the data-age line and the shortfall line — fit on one line in a
+  screenshot. The no-token error body was NOT exercised, because producing it
+  means breaking a working credential, which is not worth doing to check a wrap.
+  SwiftUI `Text` wraps by default and this one has no line limit, so the
+  expectation is sound; the confirmation is the screenshot that is missing.

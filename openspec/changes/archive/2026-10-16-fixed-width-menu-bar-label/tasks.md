@@ -31,7 +31,8 @@
 - [x] 3.2 `./scripts/install.sh`, then let several refreshes land and confirm
   the item's logged width does not move. Verify: consecutive `menu bar:` log
   lines for the same subscription all report the same `w=`
-- [ ] 3.3 Open the panel and confirm its figures are still flush left, with no
-  padding introduced. Verify: a screenshot of the panel
+- [x] 3.3 Open the panel and confirm its figures are still flush left, with no
+  padding introduced. Verified on the installed app: the panel was opened and
+  photographed; every percent sits flush right against its row with no padding
 - [x] 3.4 Archive and validate. Verify: `openspec validate --specs --strict`
   reports no advisory

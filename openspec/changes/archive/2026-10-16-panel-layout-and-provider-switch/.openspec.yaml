@@ -1,0 +1,14 @@
+schema: spec-driven
+created: 2026-10-16
+
+# This change's spec delta is superseded and must not be applied.
+#
+# It changed the menu bar label, the panel width and the controls. Four later
+# changes - fixed-width-menu-bar-label, label-is-tag-and-verdict,
+# glyph-field-reserved and figures-lead-label - rewrote the same requirements
+# in the merged spec, so replaying this delta would delete nine scenarios that
+# later changes added.
+#
+# The behaviour it asked for is in `openspec/specs/` and was delivered by those
+# later changes. Nothing is lost by not applying it.
+skip_specs: true

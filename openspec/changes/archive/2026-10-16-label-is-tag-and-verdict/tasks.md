@@ -6,7 +6,7 @@
   percent and no separator. Verify: `zai✓` and `mmx!!`
 - [x] 1.2 Write the tag and the glyph as one word, with no separator and
   no padding between them: `zai✓`, `mmx!!`
-- [ ] 1.3 Keep the tooltip unchanged, and confirm it still names every window
+- [x] 1.3 Keep the tooltip unchanged, and confirm it still names every window
   with its percent. Verify: the explanation reads
   `MiniMax — 5h 58%, 7d 47% · ! close to the reset · updated 3m ago`
 - [x] 1.4 Keep the fully monospaced font. Verify: `✓` and `✗` remain the same

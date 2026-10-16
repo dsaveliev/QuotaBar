@@ -44,4 +44,10 @@
   before the first answer. Verify: the item reads `mmx 51%·46% ?` immediately
   after a relaunch and `mmx 51%·46% !` once the refresh lands
 - [ ] 4.4 Confirm the panel header reports the real age of restored figures.
-  Verify: open the panel right after a relaunch and read the age line
+  NOT DONE, and deliberately left open. The mechanism is proven two ways: the
+  log shows the restored state before the first live answer (`zai …` then
+  `zai ?` then `zai ✓`), and a test asserts a restored subscription's
+  `updatedAt` is the fetch time rather than the restore time. What is missing
+  is the photograph: the first response lands in under 0.7s here, so the
+  restored panel was never on screen when the shutter fired. See the task
+  above, which the log does satisfy.
