@@ -249,7 +249,8 @@ enum EngineFixture {
         providers: [any QuotaProvider] = [ZaiProvider(), MiniMaxProvider()],
         authJSON: String = EngineFixture.defaultAuthJSON,
         start: EpochMillis = 1_700_000_000_000,
-        respond: @escaping @Sendable (URL, Int) -> QuotaFetchResult = flatWindow
+        respond: @escaping @Sendable (URL, Int) -> QuotaFetchResult = flatWindow,
+        restoredJSON: String = ""
     ) async -> Fixture {
         let clock = FakeClock(start)
         let file = MemoryFile(Data(authJSON.utf8))
@@ -282,6 +283,12 @@ enum EngineFixture {
             credentials: credentials,
             client: client,
             historyStore: history,
+            snapshotStore: SnapshotStore(
+                url: URL(fileURLWithPath: "/dev/null"),
+                now: { clock.now },
+                readFile: MemoryFile(Data(restoredJSON.utf8)).read,
+                writeFile: { _, _ in }
+            ),
             home: URL(fileURLWithPath: "/Users/tester"),
             now: { clock.now }
         )
@@ -440,6 +447,7 @@ enum QuotaEngineTests {
                     )
                 }),
                 historyStore: HistoryStore(url: URL(fileURLWithPath: "/dev/null")),
+                snapshotStore: emptySnapshotStore(),
                 home: URL(fileURLWithPath: "/Users/tester"),
                 now: { clock.now }
             )
@@ -483,6 +491,7 @@ enum QuotaEngineTests {
                     TransportResponse(status: 500, text: "{}")
                 }),
                 historyStore: HistoryStore(url: URL(fileURLWithPath: "/dev/null")),
+                snapshotStore: emptySnapshotStore(),
                 home: URL(fileURLWithPath: "/Users/tester"),
                 now: { clock.now }
             )
@@ -567,6 +576,7 @@ enum QuotaEngineTests {
                     readFile: first.historyFile.read,
                     writeFile: first.historyFile.write
                 ),
+                snapshotStore: emptySnapshotStore(),
                 home: URL(fileURLWithPath: "/Users/tester"),
                 now: { clock.now }
             )
@@ -634,6 +644,52 @@ enum QuotaEngineTests {
                 await windowMeasuring(noReset.engine, providerId: "zai"), false,
                 "a window with no reset is not measuring"
             )
+        }),
+
+        ("figures from before this launch are shown at once, without a verdict", {
+            // Restored figures are measurements; the projection behind them is
+            // not, so the label carries the percent and withholds the glyph.
+            let restored = #"{"zai":{"fetchedAt":1700000000000,"rows":[{"label":"5h","usage":20,"limit":100,"percent":20,"resetAt":1700003600000}]}}"#
+            let fixture = await EngineFixture.make(restoredJSON: restored)
+            let before = await fixture.engine.snapshots().first { $0.id == "zai" }
+            Harness.expectEqual(before?.state, .live, "figures are live, not loading")
+            Harness.expectEqual(before?.windows.first?.percent, 20, "the percent is right there")
+            Harness.expectEqual(before?.verdict, .unknown, "but the projection is withheld")
+            Harness.expectEqual(before?.restored, true, "and the snapshot says why")
+            Harness.expectEqual(before?.stale, false, "no refresh was due yet, so not stale")
+            Harness.expectEqual(
+                before?.menuBarLabel(), "zai 20% ?", "numbers now, glyph once confirmed"
+            )
+            Harness.expectEqual(before?.updatedAt, 1_700_000_000_000, "aged from when it was fetched")
+
+            // Three hours later, still unconfirmed: still not stale.
+            fixture.clock.advance(by: 3 * 3_600_000)
+            await fixture.engine.refreshAll()
+            let later = await fixture.engine.snapshots().first { $0.id == "minimax" }
+            Harness.expectEqual(later?.restored, false, "a confirmed provider clears the flag")
+        }),
+
+        ("a successful refresh replaces restored figures and restores the verdict", {
+            let restored = #"{"zai":{"fetchedAt":1700000000000,"rows":[{"label":"5h","usage":20,"limit":100,"percent":20,"resetAt":1700003600000}]}}"#
+            let fixture = await EngineFixture.make(respond: zaiWithReset, restoredJSON: restored)
+            Harness.expectEqual(
+                await windowState(fixture.engine, providerId: "zai"), .unknown, "withheld before"
+            )
+            await fixture.engine.refresh(providerId: "zai")
+            let after = await fixture.engine.snapshots().first { $0.id == "zai" }
+            Harness.expectEqual(after?.restored, false, "confirmed by this launch")
+            Harness.expectEqual(
+                after?.windows.first?.percent, 10, "fresh figures, not the restored ones"
+            )
+            Harness.expectEqual(after?.verdict, .unknown, "still measuring: one sample is not a rate")
+        }),
+
+        ("figures older than a week are not restored", {
+            let stale = #"{"zai":{"fetchedAt":1699000000000,"rows":[{"label":"5h","usage":20,"limit":100,"percent":20}]}}"#
+            let fixture = await EngineFixture.make(restoredJSON: stale)
+            let snapshot = await fixture.engine.snapshots().first { $0.id == "zai" }
+            Harness.expectEqual(snapshot?.state, .loading, "nothing to show, so still loading")
+            Harness.expectEqual(snapshot?.restored, false, "and nothing is claimed as restored")
         }),
 
         ("a window below its evidence threshold reports measuring, not a verdict", {
@@ -704,4 +760,13 @@ private func windowRunway(_ engine: QuotaEngine, providerId: String) async -> Ru
         .first?
         .runway
         .state
+}
+/// A snapshot store that restores nothing and writes nowhere, for tests that
+/// are not about the restore path.
+private func emptySnapshotStore() -> SnapshotStore {
+    SnapshotStore(
+        url: URL(fileURLWithPath: "/dev/null"),
+        readFile: { _ in Data() },
+        writeFile: { _, _ in }
+    )
 }

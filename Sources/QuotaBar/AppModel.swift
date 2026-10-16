@@ -51,6 +51,7 @@ final class AppModel: ObservableObject {
             credentials: CredentialStore(),
             client: QuotaHTTPClient(timeoutMs: 20_000),
             historyStore: HistoryStore(url: directory.appending(path: "history.json")),
+            snapshotStore: SnapshotStore(url: directory.appending(path: "snapshot.json")),
             home: home
         )
         self.snapshots = ProviderRegistry.all.map {

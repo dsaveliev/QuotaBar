@@ -73,6 +73,9 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
     public var lastAttemptAt: EpochMillis?
     public var stale: Bool
     public var verdict: Verdict
+    /// The figures came from a previous run and no refresh this launch has
+    /// confirmed them yet.
+    public var restored: Bool
     /// The endpoint currently in use, shown in the dropdown so a region
     /// fallback is visible rather than mysterious.
     public var endpoint: URL?
@@ -87,6 +90,7 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
         lastAttemptAt: EpochMillis?,
         stale: Bool,
         verdict: Verdict,
+        restored: Bool,
         endpoint: URL?
     ) {
         self.id = id
@@ -98,6 +102,7 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
         self.lastAttemptAt = lastAttemptAt
         self.stale = stale
         self.verdict = verdict
+        self.restored = restored
         self.endpoint = endpoint
     }
 
@@ -145,6 +150,7 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
             lastAttemptAt: nil,
             stale: false,
             verdict: .unknown,
+            restored: false,
             endpoint: nil
         )
     }

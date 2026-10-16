@@ -136,22 +136,27 @@ struct SubscriptionMenuView: View {
     /// Actions on the left, settings on the right, both columns two rows deep.
     /// One grid rather than three bands with dividers: the bands separated
     /// controls that belonged together and let each row pick its own width.
+    /// Built as rows, not as two columns. Two independent columns each measure
+    /// their own row heights, so a button and a picker of different intrinsic
+    /// height drift apart and the second row lands lower than the first. One
+    /// HStack per row puts both cells in the same layout pass, which is what
+    /// makes them line up.
     private var controls: some View {
-        HStack(alignment: .top, spacing: ControlGrid.columnSpacing) {
-            VStack(alignment: .leading, spacing: ControlGrid.rowSpacing) {
+        VStack(alignment: .leading, spacing: ControlGrid.rowSpacing) {
+            HStack(spacing: ControlGrid.columnSpacing) {
                 refreshButton
-                quitButton
+                Spacer(minLength: 0)
+                intervalRow
             }
-            Spacer(minLength: 0)
-            VStack(alignment: .leading, spacing: ControlGrid.rowSpacing) {
-                intervalPicker
+            HStack(spacing: ControlGrid.columnSpacing) {
+                quitButton
+                Spacer(minLength: 0)
                 ProviderPicker(model: model)
             }
-            .frame(width: ControlGrid.columnWidth, alignment: .leading)
         }
     }
 
-    private var intervalPicker: some View {
+    private var intervalRow: some View {
         ControlGrid.row(label: "every") {
             Picker("", selection: intervalBinding) {
                 ForEach(AppModel.intervalChoices, id: \.self) { ms in
@@ -255,7 +260,7 @@ enum VerdictStyle {
 /// sized itself: "every" and "provider" are different words, and the two
 /// pickers were separately framed at 82 and 140 points, so nothing lined up.
 enum ControlGrid {
-    static let labelWidth: CGFloat = 46
+    static let labelWidth: CGFloat = 54
     static let pickerWidth: CGFloat = 104
     static let columnWidth: CGFloat = labelWidth + 4 + pickerWidth
     static let columnSpacing: CGFloat = 8

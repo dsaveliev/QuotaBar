@@ -53,10 +53,15 @@ final class StatusItemHost {
 
         if item == nil { createItem() }
 
-        if currentSlot != slot {
-            currentSlot = slot
-            updateContents()
-        }
+        if currentSlot != slot { currentSlot = slot }
+
+        // Unconditional, and deliberately so. Reconcile runs on every refresh
+        // and on every settings change, not only when the selection moves, so
+        // this is where the label picks up new figures. Guarding it on a slot
+        // change — which is what this did at first — means a refresh never
+        // repaints the item and the menu bar silently freezes on whatever it
+        // showed when the slot last moved.
+        updateContents()
         logStateIfChanged()
     }
 

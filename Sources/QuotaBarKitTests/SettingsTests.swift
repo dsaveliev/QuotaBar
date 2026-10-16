@@ -129,6 +129,7 @@ enum SecretHygieneTests {
                     TransportResponse(status: 401, text: "unauthorized")
                 }),
                 historyStore: HistoryStore(url: URL(fileURLWithPath: "/dev/null")),
+                snapshotStore: emptySnapshotStore(),
                 home: URL(fileURLWithPath: "/Users/tester"),
                 now: { clock.now }
             )
@@ -165,6 +166,7 @@ enum SecretHygieneTests {
                     readFile: historyFile.read,
                     writeFile: historyFile.write
                 ),
+                snapshotStore: emptySnapshotStore(),
                 home: URL(fileURLWithPath: "/Users/tester"),
                 now: { clock.now }
             )
@@ -315,7 +317,7 @@ enum MenuBarItemsTests {
                     ),
                 ],
                 updatedAt: nil, lastAttemptAt: nil, stale: false,
-                verdict: .short, endpoint: nil
+                verdict: .short, restored: false, endpoint: nil
             )
             let text = MenuBarItems.explanation(for: .subscription("zai"), snapshot: live)
             Harness.expect(text.contains("5h 7%"), "five-hour window named")
@@ -382,5 +384,81 @@ enum MenuBarItemsTests {
             )
             Harness.expectEqual(store.load().selection, .provider("zai"), "carried over")
         }),
+
+        ("remembered figures survive a restart, and only within the week", {
+            let clock = FakeClock(1_700_000_000_000)
+            let file = MemoryFile()
+            let store = SnapshotStore(
+                url: URL(fileURLWithPath: "/dev/null"),
+                now: { clock.now },
+                readFile: file.read,
+                writeFile: file.write
+            )
+            let rows = [QuotaRow(label: "5h", usage: 20, limit: 100, percent: 20, resetAt: 1_700_003_600_000)]
+            store.save(["zai": SnapshotStore.Entry(rows: rows, fetchedAt: clock.now)])
+            Harness.expectEqual(store.load()["zai"]?.rows.count, 1, "round-trips through the file")
+
+            clock.advance(by: SnapshotStore.retentionMs - 3_600_000)
+            Harness.expectEqual(store.load()["zai"]?.rows.count, 1, "still inside the week")
+
+            clock.advance(by: 2 * 3_600_000)
+            Harness.expect(store.load()["zai"] == nil, "past the week, nothing is restored")
+        }),
+
+        ("a damaged entry costs only that subscription", {
+            let clock = FakeClock(1_700_000_000_000)
+            let json = #"{"zai":{"fetchedAt":1700000000000,"rows":[{"label":"5h","percent":12}]},"minimax":{"fetchedAt":1700000000000,"rows":"not-an-array"}}"#
+            let file = MemoryFile(Data(json.utf8))
+            let store = SnapshotStore(
+                url: URL(fileURLWithPath: "/dev/null"),
+                now: { clock.now },
+                readFile: file.read,
+                writeFile: file.write
+            )
+            let loaded = store.load()
+            Harness.expectEqual(loaded["zai"]?.rows.first?.percent, 12, "the good entry survives")
+            Harness.expect(loaded["minimax"] == nil, "the broken entry is dropped, not fatal")
+        }),
+
+        ("an unreadable file costs nothing and is not fatal", {
+            let store = SnapshotStore(
+                url: URL(fileURLWithPath: "/dev/null"),
+                readFile: { _ in throw CocoaError(.fileReadCorruptFile) },
+                writeFile: { _, _ in }
+            )
+            Harness.expect(store.load().isEmpty, "nothing restored, nothing crashes")
+        }),
+
+        ("restored figures keep their own age", {
+            let clock = FakeClock(1_700_000_000_000)
+            let fetchedAt = clock.now - 3 * 3_600_000
+            let file = MemoryFile()
+            let store = SnapshotStore(
+                url: URL(fileURLWithPath: "/dev/null"),
+                now: { clock.now },
+                readFile: file.read,
+                writeFile: file.write
+            )
+            store.save([
+                "zai": SnapshotStore.Entry(
+                    rows: [QuotaRow(label: "5h", usage: 20, limit: 100, percent: 20)],
+                    fetchedAt: fetchedAt
+                )
+            ])
+            Harness.expectEqual(
+                store.load()["zai"]?.fetchedAt, fetchedAt,
+                "aged from when it was fetched, not when when it was restored"
+            )
+        }),
     ]
+}
+
+/// A snapshot store that restores nothing and writes nowhere, for tests that
+/// are not about the restore path.
+private func emptySnapshotStore() -> SnapshotStore {
+    SnapshotStore(
+        url: URL(fileURLWithPath: "/dev/null"),
+        readFile: { _ in Data() },
+        writeFile: { _, _ in }
+    )
 }

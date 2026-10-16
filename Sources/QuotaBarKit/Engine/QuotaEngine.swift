@@ -17,6 +17,9 @@ public actor QuotaEngine {
         var errorCode: String?
         var stickyEndpoint: URL?
         var loading = true
+        /// These figures were restored from a previous run and no refresh this
+        /// launch has confirmed them yet. They are measurements, not a forecast.
+        var restored = false
         var inFlight: Task<Void, Never>?
     }
 
@@ -24,6 +27,7 @@ public actor QuotaEngine {
     private let credentials: CredentialStore
     private let client: QuotaHTTPClient
     private let historyStore: HistoryStore
+    private let snapshotStore: SnapshotStore
     private let home: URL
     private var intervalMs: Double = Settings.defaultIntervalMs
     private var tightFactor: Double = 1.5
@@ -36,6 +40,7 @@ public actor QuotaEngine {
         credentials: CredentialStore,
         client: QuotaHTTPClient,
         historyStore: HistoryStore,
+        snapshotStore: SnapshotStore,
         home: URL,
         tightFactor: Double = 1.5,
         maxHistorySamples: Double = 120,
@@ -53,11 +58,21 @@ public actor QuotaEngine {
                 // refresh after a launch is the first observation of this
                 // window, not evidence of a boundary.
             }
+            // Last known figures, so the menu bar shows numbers before the first
+            // response instead of an ellipsis. Keyed by provider id, so this
+            // cannot pick up another subscription's rows.
+            if let entry = snapshotStore.load()[provider.id] {
+                state.rows = entry.rows
+                state.updatedAt = entry.fetchedAt
+                state.restored = true
+                state.loading = false
+            }
             states[provider.id] = state
         }
         self.credentials = credentials
         self.client = client
         self.historyStore = historyStore
+        self.snapshotStore = snapshotStore
         self.home = home
         self.tightFactor = tightFactor
         self.maxHistorySamples = maxHistorySamples
@@ -166,6 +181,8 @@ public actor QuotaEngine {
         state.errorCode = nil
         state.loading = false
         state.stickyEndpoint = endpoint
+        // This launch has now confirmed the figures it was showing.
+        state.restored = false
 
         for row in ordered {
             guard let usage = row.usage else { continue }
@@ -189,6 +206,16 @@ public actor QuotaEngine {
 
         states[providerId] = state
         persistHistories()
+        persistSnapshot(providerId: providerId, rows: ordered, fetchedAt: timestamp)
+    }
+
+    /// Remembers the figures so the next launch can show them before its first
+    /// response. Only successes write: an error clears the figures on screen and
+    /// must not leave the last good ones on disk to be restored as if current.
+    private func persistSnapshot(providerId: String, rows: [QuotaRow], fetchedAt: EpochMillis) {
+        var entries = snapshotStore.load()
+        entries[providerId] = SnapshotStore.Entry(rows: rows, fetchedAt: fetchedAt)
+        snapshotStore.save(entries)
     }
 
     private func applyError(providerId: String, code: String) {
@@ -212,6 +239,12 @@ public actor QuotaEngine {
                 if state.errorCode != nil {
                     // While failing, freshness tracks the last attempt so a live
                     // but broken endpoint is an error, not "stale data".
+                    stale = false
+                } else if state.restored {
+                    // "Stale" means a refresh was due and did not arrive. At
+                    // launch none is due yet, so flagging every restart would
+                    // cry wolf on the one day the user least expects it. The
+                    // header's age line is what tells the truth here.
                     stale = false
                 } else if let updatedAt = state.updatedAt {
                     stale = timestamp - updatedAt > intervalMs * 2
@@ -282,7 +315,13 @@ public actor QuotaEngine {
                     updatedAt: state.updatedAt,
                     lastAttemptAt: state.lastAttemptAt,
                     stale: stale,
-                    verdict: VerdictClassifier.worst(windows.map(\.verdict)),
+                    // A projection built on a burn rate that stopped being
+                    // measured when the app exited is not this morning's
+                    // forecast. The figures stand; the verdict waits.
+                    verdict: state.restored
+                        ? .unknown
+                        : VerdictClassifier.worst(windows.map(\.verdict)),
+                    restored: state.restored,
                     endpoint: state.stickyEndpoint ?? state.provider.endpoints.first
                 )
             }
