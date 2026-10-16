@@ -128,13 +128,22 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
     /// Every field is padded to the width its widest value needs, so the item's
     /// width follows the number of windows and not the figures in them:
     ///
-    ///     zai 100%·100% !!
-    ///     zai  59%· 47%  !
+    ///     !! zai 100% 100%
+    ///      ✓ zai  59% 47%
     ///
-    /// Both are sixteen characters. Padding goes on the left of each field,
-    /// including the glyph, because a trailing space in a status item title is
-    /// something the layout may trim - and a trimmed last field is exactly the
-    /// jitter this is here to remove.
+    /// Both are sixteen characters. The verdict leads: it is the only part that
+    /// answers "do I need to do something", and it is where an eye lands first.
+    ///
+    /// Padding goes on the left of every field, including the glyph, so the
+    /// glyph's right edge does not move between a one-character and a
+    /// two-character verdict, and because a trailing space in a status item
+    /// title is something the layout may trim - a trimmed last field is
+    /// exactly the jitter this is here to remove.
+    ///
+    /// Windows are separated by a space and no other character. The padding
+    /// already separates them at one and two digits; the space is what keeps
+    /// `100% 100%` from running together at three, and it costs the same one
+    /// character the dot did.
     public func menuBarLabel() -> String {
         switch state {
         case .loading:
@@ -148,11 +157,7 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
             // built to avoid.
             let percents = windows.map { PercentFormat.fixedWidth($0.percent) }
             guard !percents.isEmpty else { return "\(tag) …" }
-            let glyph = verdict.glyph
-            let glyphField = glyph.count >= Self.glyphWidth
-                ? glyph
-                : String(repeating: " ", count: Self.glyphWidth - glyph.count) + glyph
-            return "\(Self.tagField(tag)) \(percents.joined(separator: "·")) \(glyphField)"
+            return "\(Self.glyphField(verdict.glyph)) \(Self.tagField(tag)) \(percents.joined(separator: " "))"
         }
     }
 
@@ -163,6 +168,14 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
     private static func tagField(_ tag: String) -> String {
         guard tag.count < tagWidth else { return tag }
         return tag + String(repeating: " ", count: tagWidth - tag.count)
+    }
+
+    /// Left-padded, so the glyph's right edge sits at the same x whether the
+    /// verdict is one character or two, and so the label starts with its
+    /// reading rather than with a space.
+    private static func glyphField(_ glyph: String) -> String {
+        guard glyph.count < glyphWidth else { return glyph }
+        return String(repeating: " ", count: glyphWidth - glyph.count) + glyph
     }
 
     public static func placeholder(

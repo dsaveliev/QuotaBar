@@ -384,15 +384,15 @@ enum QuotaEngineTests {
                 label(percents: [100.0], verdict: .short).count,
                 "one window has one width of its own"
             )
-            Harness.expectEqual(label(percents: [7.0], verdict: .ok), "zai   7%  ✓", "single window")
+            Harness.expectEqual(label(percents: [7.0], verdict: .ok), " ✓ zai   7%", "single window, verdict first")
         }),
 
-        ("the label renders every window's percent, then the aggregate glyph", {
+        ("the label leads with the verdict, then every window's percent", {
             let fixture = await EngineFixture.make(providers: [ZaiProvider()], respond: twoWindows)
             await fixture.engine.refresh(providerId: "zai")
             Harness.expectEqual(
                 fixture.published.snapshot(id: "zai")?.menuBarLabel(),
-                "zai  62%· 41%  ?",
+                " ? zai  62%  41%",
                 "both windows shown; ? because there is no verdict history yet"
             )
         }),
@@ -707,7 +707,7 @@ enum QuotaEngineTests {
             Harness.expectEqual(before?.restored, true, "and the snapshot says why")
             Harness.expectEqual(before?.stale, false, "no refresh was due yet, so not stale")
             Harness.expectEqual(
-                before?.menuBarLabel(), "zai  20%  ?", "numbers now, glyph once confirmed"
+                before?.menuBarLabel(), " ? zai  20%", "numbers now, glyph once confirmed"
             )
             Harness.expectEqual(before?.updatedAt, 1_700_000_000_000, "aged from when it was fetched")
 

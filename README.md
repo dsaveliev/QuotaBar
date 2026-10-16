@@ -5,10 +5,11 @@ coding-plan allowance is left, and — the part that matters — **whether the
 current pace outlasts the window**.
 
 ```
-zai 1%·52% ✓
+✓ zai   1% 52%
 ```
 
-One item, whichever provider you last selected. Both subscriptions are polled at
+One item, whichever provider you last selected: the verdict leads, because it
+is the only part that answers "do I need to do something". Both subscriptions are polled at
 once and independently of anything else on the machine: there is no editor,
 terminal agent, or OpenCode session involved. The app runs at login, reads your
 credentials from the file OpenCode already writes, and keeps a single status
@@ -49,6 +50,11 @@ verdict — not the raw percentage.
 
 The marker on each bar is *now*: fill to the left of it is quota consumed so
 far, and the gap to the right edge is how much of the window's time is left.
+
+The label is drawn in a font where every character is the same width, and each
+part of it is padded to the width its widest value needs, so the item does not
+resize as figures change. Reordering the same characters cannot change the sum,
+so the label is as many characters as it has always been.
 
 ## Where the runway comes from
 
