@@ -46,9 +46,10 @@ percent of every window the subscription reports, separated so they stay
 distinguishable, and a verdict glyph for the aggregate verdict. That trailing
 glyph is the item's only verdict indicator: no second symbol is placed beside
 it. It SHALL attach to the item an unabbreviated explanation naming each window
-with its percent, the verdict in words, and the age of the data. Every field of
-the live label SHALL occupy a fixed width, so the item's width does not depend
-on the figures it is showing.
+with its percent, the verdict in words, and the age of the data. The label
+SHALL be rendered so that every character it contains has the same advance
+width, so the item's rendered width follows the number of windows and does not
+change as figures or verdicts change.
 
 #### Scenario: healthy label
 
@@ -100,10 +101,17 @@ on the figures it is showing.
 
 #### Scenario: the item does not resize as figures change
 
-- **WHEN** a subscription's figures change from two digits to three, or its
-  verdict changes between a one-character and a two-character glyph
-- **THEN** the label's character count is unchanged, so the item keeps the same
-  width and the figures the user is reading do not shift sideways
+- **WHEN** a subscription's figures change from two digits to three, or from
+  one percent to a different one entirely
+- **THEN** the item's rendered width is unchanged, so the menu bar does not
+  reflow and the figures the user is reading do not shift sideways
+
+#### Scenario: the item does not resize as the verdict changes
+
+- **WHEN** the aggregate verdict changes between glyphs of different natural
+  widths, such as a two-character mark and a single check
+- **THEN** the item's rendered width is unchanged, because the glyph occupies
+  the same width as any other character in the label
 
 #### Scenario: each field reserves its widest value
 
@@ -116,6 +124,14 @@ on the figures it is showing.
 - **WHEN** a live label is rendered
 - **THEN** the space reserved for a shorter figure precedes it rather than
   following it, so the label ends on the verdict glyph
+
+#### Scenario: equal characters are required, not merely equal padding
+
+- **WHEN** the label's fixed fields are reserved by padding
+- **THEN** the padding is only equivalent in width if every character shares one
+  advance width; a font that spaces digits evenly but renders the percent sign
+  or the verdict glyph wider leaves the item still resizing, and SHALL NOT be
+  used for the label
 
 ### Requirement: Label states
 

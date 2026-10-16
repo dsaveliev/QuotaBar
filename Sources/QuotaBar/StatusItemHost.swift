@@ -84,7 +84,14 @@ final class StatusItemHost {
     private func createItem() {
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         guard let button = statusItem.button else { return }
-        button.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        // Fully monospaced, not monospaced-digits. The label reserves a fixed
+        // number of characters per field, and that only fixes the width if every
+        // character has the same advance: in a digits-only monospace the space
+        // is 3.3pt against a digit's 7.7 and a percent sign's 11.6, so `  9%`
+        // and `100%` differ by nine points and the item still moves. Here every
+        // glyph measures 7.4pt, `✓` and `✗` included, so the item's width is
+        // its character count and nothing else.
+        button.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
         button.target = self
         button.action = #selector(togglePopover(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
