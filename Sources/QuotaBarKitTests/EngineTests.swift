@@ -369,17 +369,20 @@ enum QuotaEngineTests {
                 for percents in [[9.0, 9.0], [100.0, 100.0], [nil, nil], [1.0, 100.0]] {
                     let twoWindows = label(windowCount: 2, percents: percents, verdict: verdict)
                     Harness.expectEqual(
-                        twoWindows.count, 3 + verdict.glyph.count,
-                        "tag and glyph, nothing between: \(twoWindows.debugDescription)"
+                        twoWindows.count, 5,
+                        "glyph's reserved field: \(twoWindows.debugDescription)"
                     )
-                    Harness.expect(!twoWindows.contains(" "), "no separator, no padding")
+                    Harness.expect(
+                        twoWindows.dropFirst(3).first == " " || verdict.glyph.count == 2,
+                        "a one-character glyph is padded, not separated: \(twoWindows.debugDescription)"
+                    )
                     Harness.expectEqual(
                         label(windowCount: 1, percents: [percents[0]], verdict: verdict),
                         twoWindows, "the number of windows does not reach the label"
                     )
                 }
             }
-            Harness.expectEqual(label(windowCount: 1, percents: [7.0], verdict: .ok), "zai✓", "ok")
+            Harness.expectEqual(label(windowCount: 1, percents: [7.0], verdict: .ok), "zai ✓", "ok")
             Harness.expectEqual(label(windowCount: 2, percents: [7.0, 8.0], verdict: .short), "zai!!", "short")
         }),
 
@@ -390,7 +393,7 @@ enum QuotaEngineTests {
                 Harness.expect(false, "a snapshot arrived")
                 return
             }
-            Harness.expectEqual(snapshot.menuBarLabel(), "zai?", "tag and verdict, no percent")
+            Harness.expectEqual(snapshot.menuBarLabel(), "zai ?", "tag and withheld verdict, no percent")
             Harness.expect(!snapshot.menuBarLabel().contains("%"), "not a single figure in the label")
 
             // The figures the label gave up are still there on hover.
@@ -710,7 +713,7 @@ enum QuotaEngineTests {
             Harness.expectEqual(before?.restored, true, "and the snapshot says why")
             Harness.expectEqual(before?.stale, false, "no refresh was due yet, so not stale")
             Harness.expectEqual(
-                before?.menuBarLabel(), "zai?", "shown at once, glyph withheld until confirmed"
+                before?.menuBarLabel(), "zai ?", "shown at once, glyph withheld until confirmed"
             )
             Harness.expectEqual(before?.updatedAt, 1_700_000_000_000, "aged from when it was fetched")
 

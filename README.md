@@ -5,7 +5,7 @@ coding-plan allowance is left, and — the part that matters — **whether the
 current pace outlasts the window**.
 
 ```
-zai✓
+zai ✓
 ```
 
 One item, whichever provider you last selected: the subscription and its state,
@@ -57,10 +57,10 @@ MiniMax — 5h 58%, 7d 47% · ! close to the reset · updated 3m ago
 The marker on each bar is *now*: fill to the left of it is quota consumed so
 far, and the gap to the right edge is how much of the window's time is left.
 
-The label is drawn in a font where every character is the same width, so the item
-cannot resize as figures change — it carries none. It moves by one character when
-the verdict changes between a one-character glyph and a two-character one, and
-that is the only time it moves. The figures are not in it: hover for them.
+The label is drawn in a font where every character is the same width, and the
+glyph is reserved two characters, so `zai ✓` and `zai!!` are the same length and
+the item cannot resize — not as figures change, since it carries none, and not
+as the verdict changes either. The figures are not in the label: hover for them.
 
 ## Where the runway comes from
 

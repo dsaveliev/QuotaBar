@@ -128,7 +128,8 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
     /// Every field is padded to the width its widest value needs, so the item's
     /// width follows the number of windows and not the figures in them:
     ///
-    ///     zai✓
+    ///     zai ✓
+    ///     zai!!
     ///     mmx!!
     ///
     /// Six characters: the subscription and its state. Nothing else.
@@ -139,12 +140,11 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
     /// the item's tooltip names every window with its percent and the panel
     /// shows them against their bars, so the label was duplicating them.
     ///
-    /// No separator and no padding between the tag and the glyph: they read as
-    /// one word, which is what they are - "MiniMax is tight", not "MiniMax,
-    /// tight". The cost is that a one-character verdict is one character
-    /// narrower than a two-character one, so the item moves by that much when
-    /// the verdict changes. That is a rare event and one character, against a
-    /// menu bar that used to move on every figure that gained a digit.
+    /// The glyph is reserved two characters and padded on the left, so a check
+    /// and a double bang land on the same pixels and the item does not move when
+    /// the verdict changes. There is no separate separator between the tag and
+    /// the glyph: the padding is the gap, and ` ✓` reads as exactly the space
+    /// `!!` does not need.
     public func menuBarLabel() -> String {
         switch state {
         case .loading:
@@ -155,15 +155,21 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
             // No figures: the label says which subscription this is and whether
             // it needs attention, and the tooltip and panel carry the numbers.
             guard !windows.isEmpty else { return "\(tag) …" }
-            return "\(tag)\(verdict.glyph)"
+            return "\(tag)\(Self.glyphField(verdict.glyph))"
         }
     }
 
+    /// Two, set by `!!`, the widest glyph in the vocabulary. Named so the next
+    /// reader sees where to change it if that ever stops being true.
     private static let glyphWidth = 2
 
-    /// The glyph's widest form, so a change to the vocabulary is caught rather
-    /// than discovered on screen.
-    public static var widestGlyph: Int { glyphWidth }
+    /// Left-padded, never right: a trailing space in a status item title is
+    /// something the layout may trim, and a trimmed last field would put the
+    /// width jitter back silently.
+    private static func glyphField(_ glyph: String) -> String {
+        guard glyph.count < glyphWidth else { return glyph }
+        return String(repeating: " ", count: glyphWidth - glyph.count) + glyph
+    }
 
     public static func placeholder(
         provider: any QuotaProvider
