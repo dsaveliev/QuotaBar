@@ -1,6 +1,7 @@
 #!/bin/bash
 # Builds the app, installs it to /Applications, and registers a LaunchAgent so
-# it starts at login and is restarted if it dies.
+# it starts at login and is restarted if it dies abnormally. A clean quit is
+# final: the app stays off until the user starts it again.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -13,6 +14,10 @@ LOGS="$HOME/Library/Logs/QuotaBar"
 ./scripts/build-app.sh
 
 echo "==> Quitting any running instance"
+# This quit is final: KeepAlive below only restarts an abnormal exit, so this
+# app does not come back on its own. The bootstrap + kickstart at the end of
+# this script is what brings it back. Do not reorder or drop this block - it is
+# what lets the old binary be replaced without a second copy left running.
 osascript -e 'quit app "QuotaBar"' >/dev/null 2>&1 || true
 sleep 1
 
@@ -35,8 +40,13 @@ cat > "${PLIST}" <<PLIST
     </array>
     <key>RunAtLoad</key>
     <true/>
+    <!-- Restart on abnormal exit only. A bare <true/> would also restart the
+         app after the user quits it, which makes the Quit button a lie. -->
     <key>KeepAlive</key>
-    <true/>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
     <key>StandardOutPath</key>
     <string>${LOGS}/quotabar.log</string>
     <key>StandardErrorPath</key>

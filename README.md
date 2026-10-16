@@ -98,8 +98,22 @@ swift run QuotaBarKitTests  # run the test suite
 `install.sh` builds a release binary, assembles `QuotaBar.app` with
 `LSUIElement` set (no Dock tile, no app switcher), ad-hoc signs it, copies it to
 `/Applications`, and registers a `LaunchAgent`
-(`~/Library/LaunchAgents/dev.dmitrii.quotabar.plist`) with `RunAtLoad` and
-`KeepAlive`.
+(`~/Library/LaunchAgents/dev.dmitrii.quotabar.plist`) with `RunAtLoad` and a
+`KeepAlive` that fires **only on an abnormal exit**.
+
+That distinction is the whole reason **Quit** works. The app terminates with
+status 0 when you quit it, so launchd leaves it alone: a clean quit is final
+and the icon does not come back. If the app crashes or is killed with `kill -9`,
+launchd starts it again, because a quota display that silently vanished is
+worse than one you did not ask for.
+
+To bring it back within the same login session:
+
+```sh
+launchctl kickstart gui/$UID/dev.dmitrii.quotabar
+```
+
+A crash is not a quit. `kill -TERM` counts as abnormal and the app returns.
 
 To run the bundle without installing it:
 
@@ -145,7 +159,7 @@ Each panel carries its own controls, so they are always one click away:
 - **Refresh** — refresh both subscriptions immediately.
 - **every** — the polling cadence: 30s, 60s, 2m, 5m, or 15m.
 - **Providers** — the picker described above.
-- **Quit**.
+- **Quit** — the app exits and stays out until you start it again.
 
 A panel also refreshes on open when the data on screen is older than the
 current cadence.
