@@ -1,0 +1,18 @@
+# Swift Package Manager / Swift build output
+.build/
+.swiftpm/
+*.xcodeproj
+xcuserdata/
+*.xcuserstate
+*.dSYM
+
+# Assembled .app bundle produced by scripts/build-app.sh
+build/
+
+# macOS
+.DS_Store
+
+# Note on tests: there is no Tests/ directory because the toolchain this is
+# built with ships neither XCTest nor the swift-testing module, so `swift test`
+# cannot run. The suite is an ordinary executable target — Sources/QuotaBarKitTests,
+# run with `swift run QuotaBarKitTests`.

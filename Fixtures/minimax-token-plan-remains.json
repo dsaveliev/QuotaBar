@@ -1,0 +1,25 @@
+{
+  "model_remains": [
+    {
+      "start_time": 1792129399162,
+      "end_time": 1792147399162,
+      "remains_time": 975642,
+      "current_interval_total_count": 0,
+      "current_interval_usage_count": 0,
+      "model_name": "general",
+      "current_weekly_total_count": 0,
+      "current_weekly_usage_count": 0,
+      "weekly_start_time": 1791879289231,
+      "weekly_end_time": 1792484089231,
+      "weekly_remains_time": 337665711,
+      "current_interval_status": 1,
+      "current_interval_remaining_percent": 84,
+      "current_weekly_status": 1,
+      "current_weekly_remaining_percent": 60
+    }
+  ],
+  "base_resp": {
+    "status_code": 0,
+    "status_msg": "success"
+  }
+}

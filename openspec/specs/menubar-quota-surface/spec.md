@@ -1,0 +1,333 @@
+# menubar-quota-surface Specification
+
+## Purpose
+Defines what the user actually sees in the macOS menu bar: one compact status
+item per subscription, the dropdown that carries the full picture, and the
+controls the user has there.
+
+## Requirements
+
+### Requirement: Menu bar presence
+
+The system SHALL present exactly one menu bar item, labelled with the currently
+selected subscription's short tag (`zai` for Z.ai, `mmx` for MiniMax), and SHALL
+NOT appear in the Dock or the app switcher. The item's identity SHALL follow the
+current selection immediately, so there is never more than one entrance to the
+panel and never a subscription that can be "missing" because it lives behind a
+second item.
+
+#### Scenario: both subscriptions visible at once
+
+- **WHEN** the app is running with both subscriptions available
+- **THEN** one menu bar item is present, showing the currently selected
+  subscription, and the panel behind it can show either
+
+#### Scenario: item count follows the selection
+
+- **WHEN** the user selects a different provider in the panel's picker
+- **THEN** the single item's label, icon, and figures switch to that provider
+  without a restart and without closing the panel
+
+#### Scenario: nothing selected
+
+- **WHEN** the user selects `Show none` for every subscription
+- **THEN** the item is replaced by a single recovery item that opens the picker
+
+#### Scenario: agent, not a foreground app
+
+- **WHEN** the app launches
+- **THEN** it runs as a menu bar accessory with no Dock tile, no main window,
+  and no menu bar takeover
+
+### Requirement: Compact status label
+
+The system SHALL render each item's label as the subscription tag, the consumed
+percent of every window the subscription reports, separated so they stay
+distinguishable, and a verdict glyph for the aggregate verdict. It SHALL attach
+to the item an unabbreviated explanation naming each window with its percent,
+the verdict in words, and the age of the data.
+
+#### Scenario: healthy label
+
+- **WHEN** the aggregate verdict is `ok` and the windows are at 62% and 41%
+- **THEN** the label reads `zai 62%·41% ✓`, showing both windows rather than
+  only the more consumed one
+
+#### Scenario: urgent label
+
+- **WHEN** the aggregate verdict is `short` and the windows are at 13% and 42%
+- **THEN** the label reads `mmx 13%·42% !!`, so both the severity and which
+  window is behind are legible without opening the menu
+
+#### Scenario: single-window subscription
+
+- **WHEN** a subscription reports only one window
+- **THEN** the label shows that window's percent alone, without a separator
+
+#### Scenario: explanation
+
+- **WHEN** an item's explanation is requested
+- **THEN** it names each window with its own percent, states what the verdict
+  means in words, and reports how long ago the data was fetched
+
+#### Scenario: unknown or unmeasured label
+
+- **WHEN** the aggregate verdict is `unknown`
+- **THEN** the label ends in `?` rather than presenting a number as if it were
+  trustworthy
+
+### Requirement: Label states
+
+The system SHALL show a distinct label for each of the data states — live,
+loading, error, and missing credential — and SHALL keep the subscription's tag
+visible in every one of them.
+
+#### Scenario: before the first refresh completes
+
+- **WHEN** a subscription has not yet returned data
+- **THEN** its label shows the tag followed by an ellipsis
+
+#### Scenario: refresh failure
+
+- **WHEN** the most recent refresh of a subscription failed
+- **THEN** its label shows the tag followed by a question mark, and the previous
+  numbers are not presented as current
+
+#### Scenario: missing credential
+
+- **WHEN** no credential resolves for a subscription
+- **THEN** its label indicates the setup problem instead of a percent, and the
+  dropdown states which credential is missing and where it is looked up
+
+### Requirement: Dropdown content
+
+The system SHALL open the panel to a header identifying the displayed
+subscription with its verdict glyph and how long ago the data was fetched, one
+row per quota window laid out as a horizontal line with its label, a proportional
+usage bar, the consumed percent, the verdict glyph, the time until reset, and
+the projected runway, and a controls footer containing the provider picker, a
+refresh control, the interval setting, and a quit control. The header SHALL NOT
+repeat the per-window figures that the rows below already carry.
+
+#### Scenario: per-window block
+
+- **WHEN** a subscription reports a window
+- **THEN** the row shows the window label, a visible proportional usage bar
+  marking elapsed window time, the consumed percent, the verdict glyph, the
+  time until reset, and the projected runway
+
+#### Scenario: header freshness
+
+- **WHEN** the panel is open
+- **THEN** the header shows the subscription name, the aggregate verdict glyph,
+  and how long ago the data was fetched, and no per-window summary line
+
+#### Scenario: readable, not dimmed
+
+- **WHEN** the panel is open
+- **THEN** text and bars render at full contrast, and the verdict glyph and bar
+  carry the verdict's colour, rather than appearing as inactive menu items
+
+#### Scenario: controls
+
+- **WHEN** the panel is open
+- **THEN** it offers a provider picker, a refresh-now control, an interval
+  setting, and a quit control
+
+### Requirement: Shortfall annotation
+
+The system SHALL state, for a window whose projection runs dry before its reset,
+how much earlier it runs out, on its own line beneath that window's runway line,
+in muted text rather than in the verdict's colour. The runway figure itself
+SHALL be presented identically for every window, regardless of verdict.
+
+#### Scenario: runway line is uniform
+
+- **WHEN** two windows are shown, one on pace and one short
+- **THEN** both runway readings begin with the same `runway` label and show the
+  projected duration alone
+
+#### Scenario: shortfall stated
+
+- **WHEN** a window's projection falls before its reset
+- **THEN** a line beneath it says how much earlier it ends, in muted text
+
+#### Scenario: blocked window
+
+- **WHEN** a window's verdict is `blocked`
+- **THEN** its runway line states that the limit is reached and when it resets,
+  rather than projecting a runway
+
+### Requirement: Live update
+
+The system SHALL update menu bar labels, panel contents, and the provider picker
+as refresh results land, without requiring the user to reopen the menu and
+without any of the three reading from a snapshot captured before the result
+arrived.
+
+#### Scenario: refresh while menu closed
+
+- **WHEN** a scheduled refresh returns new data while no panel is open
+- **THEN** the corresponding label shows the new percent and verdict on the next
+  render
+
+#### Scenario: refresh while menu open
+
+- **WHEN** a refresh returns new data while that subscription's panel is open
+- **THEN** the panel's header, rows, and data age update in place, without being
+  reopened
+
+#### Scenario: panel and picker agree
+
+- **WHEN** a panel is open at the same time as its provider picker
+- **THEN** both show the same figures, so neither can display a loading or stale
+  reading while the other shows live data
+
+### Requirement: Manual refresh
+
+The system SHALL refresh immediately when the user activates refresh-now, SHALL
+refresh a subscription when its panel is opened if its data is older than the
+configured interval, and SHALL make the request's progress visible for as long
+as it is in flight.
+
+#### Scenario: explicit refresh
+
+- **WHEN** the user activates refresh-now
+- **THEN** both tracked subscriptions issue a refresh regardless of when their
+  timers last fired
+
+#### Scenario: refresh on open
+
+- **WHEN** a panel is opened and the subscription's data is older than the
+  configured interval
+- **THEN** that subscription issues a refresh before the panel settles
+
+#### Scenario: progress is visible
+
+- **WHEN** a refresh requested from the panel is in flight
+- **THEN** the control shows a progress indicator and a distinct label, and the
+  data age updates as soon as the result lands
+
+#### Scenario: refresh cannot be stacked
+
+- **WHEN** the user activates refresh while a refresh is already in flight
+- **THEN** no second request is started until the first one finishes
+
+### Requirement: Interval setting
+
+The system SHALL let the user change the refresh interval from the dropdown, and
+SHALL apply the new interval to the next scheduled refresh without a restart.
+
+#### Scenario: interval changed
+
+- **WHEN** the user selects a new refresh interval
+- **THEN** subsequent refreshes occur at the new cadence and the choice persists
+  across restarts
+
+#### Scenario: out-of-range interval rejected
+
+- **WHEN** a selected interval is below the supported minimum or above the
+  supported maximum
+- **THEN** it is clamped into the supported range rather than accepted
+
+### Requirement: Item visibility
+
+The system SHALL let the user choose which subscriptions appear in the menu bar,
+SHALL keep hidden subscriptions polling and retaining their data, and SHALL
+always leave at least one menu bar item through which the user can change that
+choice again.
+
+#### Scenario: item hidden
+
+- **WHEN** the user unchecks a subscription in the provider picker
+- **THEN** its item disappears from the menu bar while the subscription keeps
+  refreshing, keeps its sample history, and its choice persists across restarts
+
+#### Scenario: hidden item still reachable
+
+- **WHEN** at least one subscription is shown
+- **THEN** the provider picker lists every subscription, including hidden ones,
+  and re-enabling one restores its menu bar item
+
+#### Scenario: last item hidden
+
+- **WHEN** the user unchecks the last shown subscription
+- **THEN** a single recovery item remains in the menu bar whose panel offers the
+  provider picker, so the user can bring subscriptions back without reinstalling
+  or editing a file
+
+#### Scenario: choice survives a restart
+
+- **WHEN** the app is relaunched after the user changed which subscriptions are
+  shown
+- **THEN** the menu bar shows exactly the subscriptions the user chose
+
+### Requirement: Quit
+
+The system SHALL terminate cleanly on quit, persisting settings and sample
+history so the next launch resumes with the same configuration and projection
+basis.
+
+#### Scenario: quit and relaunch
+
+- **WHEN** the user quits the app and launches it again
+- **THEN** the interval setting, item visibility choices, and sample histories
+  are as they were at quit
+
+### Requirement: Provider picker
+
+The system SHALL present, in every panel, a single selection control listing
+every supported subscription plus an explicit `Show none` option, SHALL show
+which subscription is currently selected, and SHALL apply a change immediately
+when it is made.
+
+#### Scenario: picker reflects the current selection
+
+- **WHEN** a panel is open
+- **THEN** the control reads as the selected provider's name, and every supported
+  subscription appears as a choice
+
+#### Scenario: toggle applies immediately
+
+- **WHEN** the user selects a different provider
+- **THEN** the panel's contents and the menu bar item switch to that provider
+  without a restart and without closing the panel
+
+#### Scenario: picker lists every supported subscription
+
+- **WHEN** a panel is open
+- **THEN** the picker lists all subscriptions the app supports, including any
+  that have no usable credential, so the user can see what is available
+
+#### Scenario: panel of a hidden-all app
+
+- **WHEN** the user chooses `Show none`
+- **THEN** no provider's limits are shown, and a recovery item remains in the
+  menu bar whose panel offers the picker
+
+#### Scenario: choice survives a restart
+
+- **WHEN** the app is relaunched
+- **THEN** the previously selected provider, or the recovery state, is restored
+
+### Requirement: Menu bar item diagnostics
+
+The system SHALL write to its log every menu bar item it creates or removes,
+together with the item's label and its laid-out width, and SHALL rewrite that
+line whenever the set of items or their labels changes.
+
+#### Scenario: both providers present
+
+- **WHEN** both subscriptions are shown and reporting
+- **THEN** the log names both items with their labels and a width greater than
+  zero, so a present item is distinguishable from one AppKit refused to lay out
+
+#### Scenario: item removed
+
+- **WHEN** the user hides a subscription
+- **THEN** the next log line no longer names that item
+
+#### Scenario: log is quiet when nothing changes
+
+- **WHEN** refreshes land but the set of items and their labels are unchanged
+- **THEN** no further menu bar line is written, so the log stays readable
