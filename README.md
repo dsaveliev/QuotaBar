@@ -9,9 +9,12 @@ A macOS menu bar agent that shows how much of your **Z.ai** and **MiniMax**
 coding-plan allowance is left, and — the part that matters — **whether the
 current pace outlasts the window**.
 
-<!-- A screenshot of the open panel belongs here. It should show invented
-     numbers: the real panel shows your real usage, and this repository is
-     public. -->
+![The panel, with a five-hour window past its evidence threshold and a
+weekly window still gathering it](docs/panel.png)
+
+*Real panel, real usage, with permission. The five-hour window has enough
+history to be acted on; the weekly one is still gathering evidence, and says
+so instead of guessing.*
 
 ```
 zai ✓
@@ -26,56 +29,10 @@ credentials from the file OpenCode already writes, and keeps a single status
 item in the menu bar. One entrance to the panel means there is never a question
 of which item a figure belongs to.
 
-Open a dropdown for the full picture:
-
-```
-Z.ai                                    ✓
-just now · api.z.ai
-
-5h                              52%   !!
-██████████████░░░░░░░░░░░░░░░░
-resets in 3h 12m            runway ~2h 5m
-ends 1h 7m before the reset
-
-7d                              41%   ✓
-██████████░░░░░░░░░░░░░░░░░░░░░░
-resets in 3d 4h            runway ~10d
-```
-
-The runway line has the same shape whatever the verdict; a shortfall is said on
-the muted line beneath it, never by colouring the number.
-
-## Contents
-
-- [What the numbers mean](#what-the-numbers-mean)
-- [Where the runway comes from](#where-the-runway-comes-from)
-- [Credentials](#credentials)
-- [Install](#install)
-- [Choosing which provider to show](#choosing-which-provider-to-show)
-- [Controls](#controls)
-- [Troubleshooting](#troubleshooting)
-- [Architecture](#architecture)
-- [Development](#development)
-- [Privacy](#privacy)
-
-## What the numbers mean
-
-Each window gets one verdict, and the glyph and the bar colour follow the
-verdict — not the raw percentage.
-
-Hovering the item reads out everything the label leaves out:
-
-```
-MiniMax — 5h 58%, 7d 47% · ! close to the reset · updated 3m ago
-```
-
-| Glyph | Verdict | Meaning |
-| --- | --- | --- |
-| `✓` | ok | the projection comfortably outlasts the reset |
-| `!` | tight | the projection lands within 1.5× the distance to the reset |
-| `!!` | short | at this pace the quota runs dry **before** it resets |
-| `✗` | blocked | the limit is already reached |
-| `?` | unknown | not enough evidence yet — a fresh install, or stale data |
+The runway line has the same shape whatever the verdict, so the numbers never
+jump around while you read them. A shortfall is said on the muted line beneath
+it, never by colouring the number. A window still gathering evidence says how
+far along it is rather than guessing.
 
 The marker on each bar is *now*: fill to the left of it is quota consumed so
 far, and the gap to the right edge is how much of the window's time is left.

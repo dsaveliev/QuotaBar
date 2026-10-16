@@ -34,14 +34,11 @@ struct WindowRowView: View {
             .font(.system(size: 11).monospacedDigit())
             .foregroundStyle(.secondary)
 
-            if let shortfallText {
-                Text(shortfallText)
-                    .font(.system(size: 10).monospacedDigit())
-                    .foregroundStyle(.tertiary)
-            } else if window.isMeasuring {
-                // A window that is still collecting evidence says so, with how
-                // far along it is — a bare "wait" reads as a hang.
-                Text(measuringText)
+            // The model says which line this row has, if any. It used to be
+            // chosen here, and choosing wrongly drew a shortfall under a row
+            // that had just declined to stand behind its own projection.
+            if let annotation = window.annotation {
+                Text(annotation)
                     .font(.system(size: 10).monospacedDigit())
                     .foregroundStyle(.tertiary)
             }
@@ -77,24 +74,6 @@ struct WindowRowView: View {
         }
     }
 
-    private var measuringText: String {
-        guard let fraction = window.measuredFraction else { return "measuring…" }
-        let percent = PercentFormat.text(fraction * 100)
-        return "measuring \(percent) of the evidence it needs"
-    }
-
-    /// How much earlier this window ends than its reset, when it ends early.
-    /// Nil when the projection does outlast the reset, or is not yet trustworthy.
-    private var shortfallText: String? {
-        let runway = window.runway
-        guard runway.state == .warn,
-              let runwayMs = runway.runwayMs,
-              let resetInMs = runway.resetInMs
-        else { return nil }
-        let shortfall = resetInMs - runwayMs
-        guard shortfall.isFinite, shortfall > 0 else { return nil }
-        return "ends \(DurationFormat.duration(shortfall)) before the reset"
-    }
 }
 
 /// Proportional usage bar with a pace marker. The marker is *now*: fill to its

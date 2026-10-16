@@ -226,6 +226,52 @@ enum VerdictTests {
             Harness.expectEqual(VerdictClassifier.classify(withSpan(required - 1)), .unknown, "below")
             Harness.expectEqual(VerdictClassifier.classify(withSpan(required)), .short, "at the threshold")
         }),
+        ("a measuring window states the measurement, not the shortfall", {
+            // The state the panel actually showed: a weekly window with enough
+            // span for a burn rate, so the projection reads "short", while
+            // still short of the threshold its own duration demands.
+            func window(
+                isMeasuring: Bool,
+                fraction: Double?,
+                runway: RunwayResult
+            ) -> WindowSnapshot {
+                WindowSnapshot(
+                    label: "7d", percent: 56, usage: 56, limit: 100,
+                    verdict: isMeasuring ? .unknown : .short,
+                    resetInMs: 397_200_000, windowMs: 604_800_000,
+                    runway: runway,
+                    isMeasuring: isMeasuring,
+                    measuredFraction: fraction
+                )
+            }
+            let wouldFallShort = RunwayResult(
+                state: .warn, runwayMs: 86_400_000,
+                resetInMs: 397_200_000, spanMs: 1_200_000
+            )
+            Harness.expectEqual(
+                window(isMeasuring: true, fraction: 0.68, runway: wouldFallShort).annotation,
+                "measuring 68% of the evidence it needs",
+                "the shortfall is not asserted on evidence the row disclaims"
+            )
+            Harness.expectEqual(
+                window(isMeasuring: true, fraction: nil, runway: wouldFallShort).annotation,
+                "measuring…", "still says it is measuring without a fraction"
+            )
+            Harness.expectEqual(
+                window(isMeasuring: false, fraction: nil, runway: wouldFallShort).annotation,
+                "ends 3d 14h before the reset",
+                "past the threshold, the shortfall is stated"
+            )
+            let onPace = RunwayResult(
+                state: .ok, runwayMs: 500_000_000,
+                resetInMs: 397_200_000, spanMs: 1_200_000
+            )
+            Harness.expectEqual(
+                window(isMeasuring: false, fraction: nil, runway: onPace).annotation, nil,
+                "nothing to say"
+            )
+        }),
+
         ("the same span is enough for a five-hour window and not for a weekly one", {
             let span: Double = 20 * 60 * 1000
             let fiveHours: Double = 5 * 60 * 60 * 1000

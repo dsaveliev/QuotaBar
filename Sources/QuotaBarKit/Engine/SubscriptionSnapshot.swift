@@ -20,6 +20,32 @@ public struct WindowSnapshot: Identifiable, Sendable, Equatable {
 
     public var id: String { label }
 
+    /// The muted line beneath the runway: why there is no verdict yet, or how
+    /// much earlier this window ends. One line, never two.
+    ///
+    /// Measuring wins over the shortfall. Both can be true at once - a weekly
+    /// window with two samples already spans enough to produce a burn rate, so
+    /// its projection reads "short", while the span is still far short of the
+    /// eight hours the weekly threshold wants. Stating the shortfall there would
+    /// be asserting, as fact, exactly what the line above just declined to
+    /// stand behind.
+    ///
+    /// This lives in the model rather than the view so the rule has a test. The
+    /// view is in the app target, which has no test harness; this is not.
+    public var annotation: String? {
+        if isMeasuring {
+            guard let fraction = measuredFraction else { return "measuring…" }
+            return "measuring \(PercentFormat.text(fraction * 100)) of the evidence it needs"
+        }
+        guard runway.state == .warn,
+              let runwayMs = runway.runwayMs,
+              let resetInMs = runway.resetInMs
+        else { return nil }
+        let shortfall = resetInMs - runwayMs
+        guard shortfall.isFinite, shortfall > 0 else { return nil }
+        return "ends \(DurationFormat.duration(shortfall)) before the reset"
+    }
+
     public init(
         label: String,
         percent: Double?,
