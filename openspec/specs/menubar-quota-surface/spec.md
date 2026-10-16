@@ -41,33 +41,35 @@ second item.
 
 ### Requirement: Compact status label
 
-The system SHALL render each item's label as a verdict glyph, the subscription
-tag, and the consumed percent of every window the subscription reports,
-separated by a space so they stay distinguishable. The verdict glyph SHALL be
-the item's only verdict indicator: no second symbol is placed beside it. It
-SHALL attach to the item an unabbreviated explanation naming each window with
-its percent, the verdict in words, and the age of the data. The label SHALL be
-rendered so that every character it contains has the same advance width, so the
-item's rendered width follows the number of windows and does not change as
-figures or verdicts change.
+The system SHALL render each item's label as the consumed percent of every
+window the subscription reports, then the subscription tag, then a verdict glyph
+for the aggregate verdict, with the windows separated from each other by a
+space so they stay distinguishable. The verdict glyph SHALL be the item's only
+verdict indicator: no second symbol is placed beside it. It SHALL attach to the
+item an unabbreviated explanation naming each window with its percent, the
+verdict in words, and the age of the data. The label SHALL be rendered so that
+every character it contains has the same advance width, so the item's rendered
+width follows the number of windows and does not change as figures or verdicts
+change.
 
 #### Scenario: healthy label
 
 - **WHEN** the aggregate verdict is `ok` and the windows are at 62% and 41%
-- **THEN** the label reads `✓ zai  62% 41%`, so the verdict is the first thing
-  seen and both windows are shown rather than only the more consumed one
+- **THEN** the label reads ` 62% 41% zai  ✓`, so the figures lead, the tag
+  separates them from the verdict, and both windows are shown rather than only
+  the more consumed one
 
 #### Scenario: urgent label
 
 - **WHEN** the aggregate verdict is `short` and the windows are at 13% and 42%
-- **THEN** the label reads `!! mmx  13% 42%`, so both the severity and which
+- **THEN** the label reads ` 13% 42% mmx  !!`, so both the severity and which
   window is behind are legible without opening the menu
 
 #### Scenario: single-window subscription
 
 - **WHEN** a subscription reports only one window
-- **THEN** the label shows the verdict, the tag, and that window's percent
-  alone, with no trailing separator
+- **THEN** the label shows that window's percent, the tag, and the verdict, with
+  no trailing separator
 
 #### Scenario: explanation
 
@@ -78,13 +80,13 @@ figures or verdicts change.
 #### Scenario: unknown or unmeasured label
 
 - **WHEN** the aggregate verdict is `unknown`
-- **THEN** the label begins in `?` rather than presenting a number as if it
-  were trustworthy
+- **THEN** the label ends in `?` rather than presenting a number as if it were
+  trustworthy
 
 #### Scenario: the verdict is stated once
 
 - **WHEN** a subscription's item is shown
-- **THEN** the verdict appears once, as the leading glyph of the text, and no
+- **THEN** the verdict appears once, as the trailing glyph of the text, and no
   leading image carries it a second time
 
 #### Scenario: the recovery item keeps a symbol
@@ -97,8 +99,8 @@ figures or verdicts change.
 
 - **WHEN** the app starts and a subscription has figures restored from a
   previous run that no refresh this launch has confirmed yet
-- **THEN** its label shows those figures immediately and leads with `?` until
-  the first live answer arrives
+- **THEN** its label shows those figures immediately and withholds the verdict,
+  ending in `?` until the first live answer arrives
 
 #### Scenario: the item does not resize as figures change
 
@@ -117,8 +119,8 @@ figures or verdicts change.
 #### Scenario: each field reserves its widest value
 
 - **WHEN** a live label is rendered
-- **THEN** the verdict glyph occupies two characters, the provider tag three,
-  and each percent four, so the widest possible figures define the item's width
+- **THEN** each percent occupies four characters, the provider tag three, and the
+  verdict glyph two, so the widest possible figures define the item's width
 
 #### Scenario: padding is never trailing
 
@@ -139,6 +141,13 @@ figures or verdicts change.
 - **WHEN** a subscription reports more than one window
 - **THEN** the windows are separated by a space and no other character, so
   three-digit percentages read as two figures rather than running together
+
+#### Scenario: the tag separates the figures from the verdict
+
+- **WHEN** a live label is rendered
+- **THEN** the provider tag sits between the last figure and the verdict glyph,
+  so a reader does not take the verdict for a further figure or the figures for
+  a reading of the verdict
 
 ### Requirement: Label states
 

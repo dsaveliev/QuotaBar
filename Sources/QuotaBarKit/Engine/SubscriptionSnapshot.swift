@@ -128,11 +128,12 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
     /// Every field is padded to the width its widest value needs, so the item's
     /// width follows the number of windows and not the figures in them:
     ///
-    ///     !! zai 100% 100%
-    ///      ✓ zai  59% 47%
+    ///     100% 100% mmx !!
+    ///       1%  52% zai  ✓
     ///
-    /// Both are sixteen characters. The verdict leads: it is the only part that
-    /// answers "do I need to do something", and it is where an eye lands first.
+    /// Both are sixteen characters. The figures lead, because reading them is
+    /// what the menu bar is for; the verdict qualifies them and goes last. The
+    /// tag sits between the two so it reads as the separator it ends up being.
     ///
     /// Padding goes on the left of every field, including the glyph, so the
     /// glyph's right edge does not move between a one-character and a
@@ -157,7 +158,7 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
             // built to avoid.
             let percents = windows.map { PercentFormat.fixedWidth($0.percent) }
             guard !percents.isEmpty else { return "\(tag) …" }
-            return "\(Self.glyphField(verdict.glyph)) \(Self.tagField(tag)) \(percents.joined(separator: " "))"
+            return "\(percents.joined(separator: " ")) \(Self.tagField(tag)) \(Self.glyphField(verdict.glyph))"
         }
     }
 

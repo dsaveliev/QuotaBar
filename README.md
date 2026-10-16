@@ -5,11 +5,12 @@ coding-plan allowance is left, and — the part that matters — **whether the
 current pace outlasts the window**.
 
 ```
-✓ zai   1% 52%
+ 1%  52% zai  ✓
 ```
 
-One item, whichever provider you last selected: the verdict leads, because it
-is the only part that answers "do I need to do something". Both subscriptions are polled at
+One item, whichever provider you last selected: the figures first, since reading
+them is what the menu bar is for, with the tag between them and the verdict
+qualifying them at the end. Both subscriptions are polled at
 once and independently of anything else on the machine: there is no editor,
 terminal agent, or OpenCode session involved. The app runs at login, reads your
 credentials from the file OpenCode already writes, and keeps a single status
