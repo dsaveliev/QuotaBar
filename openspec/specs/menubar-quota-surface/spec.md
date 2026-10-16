@@ -264,13 +264,11 @@ choice again.
 
 ### Requirement: Quit
 
-The system SHALL terminate cleanly on quit, persisting settings and sample
-history so the next launch resumes with the same configuration and projection
-basis, and SHALL treat that quit as final: once the app has exited normally it
-SHALL stay off until the user starts it again, either by launching the app
-directly or by asking the service manager to start the job. The system SHALL
-restart the app automatically only when it exits abnormally, so that a crash
-cannot leave a quota display silently absent.
+The system SHALL terminate cleanly on quit and persist settings and sample
+history, so the next launch resumes with the same configuration and projection
+basis. A normal exit SHALL be final: the app stays off until the user starts it
+again. An abnormal exit SHALL be recovered automatically, and the app SHALL be
+running whenever the user is logged in.
 
 #### Scenario: quit and relaunch
 
