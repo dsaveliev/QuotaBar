@@ -5,18 +5,18 @@ import SwiftUI
 /// then controls. Rendered inside an `NPPopover`, so this is ordinary SwiftUI —
 /// bars, colour, and full-contrast text, not menu rows.
 ///
-/// The snapshot is looked up from the model by id on every render rather than
-/// being handed in as a value. The popover's hosting controller is built once,
-/// so a snapshot captured at construction would pin the panel to whatever it
-/// showed when the item was created — a panel stuck on "loading" forever while
-/// the menu bar label and the provider picker both update.
+/// The snapshot is looked up from the model on every render rather than being
+/// handed in as a value, and which subscription to show is read from the model
+/// rather than captured. The popover's hosting controller is built once for the
+/// life of the app, so anything captured at construction pins the panel to
+/// whatever it showed when the item was created - a panel stuck on "loading"
+/// forever, or one that cannot follow a provider switch.
 struct SubscriptionMenuView: View {
     @ObservedObject var model: AppModel
-    let subscriptionId: String
 
     var body: some View {
         Group {
-            if let snapshot = model.snapshot(id: subscriptionId) {
+            if let snapshot = model.shown {
                 content(for: snapshot)
             } else {
                 Text("Loading…")
@@ -26,7 +26,7 @@ struct SubscriptionMenuView: View {
                     .padding(12)
             }
         }
-        .onAppear { model.refreshIfStale(id: subscriptionId) }
+        .onAppear { if let id = model.shown?.id { model.refreshIfStale(id: id) } }
     }
 
     @ViewBuilder
@@ -133,34 +133,41 @@ struct SubscriptionMenuView: View {
 
     // MARK: - Controls
 
+    /// Actions on the left, settings on the right, both columns two rows deep.
+    /// One grid rather than three bands with dividers: the bands separated
+    /// controls that belonged together and let each row pick its own width.
     private var controls: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
+        HStack(alignment: .top, spacing: ControlGrid.columnSpacing) {
+            VStack(alignment: .leading, spacing: ControlGrid.rowSpacing) {
                 refreshButton
-                Spacer(minLength: 4)
-                HStack(spacing: 4) {
-                    Text("every")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    Picker("", selection: intervalBinding) {
-                        ForEach(AppModel.intervalChoices, id: \.self) { ms in
-                            Text(DurationFormat.duration(ms)).tag(ms)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .frame(width: 82)
+                quitButton
+            }
+            Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: ControlGrid.rowSpacing) {
+                intervalPicker
+                ProviderPicker(model: model)
+            }
+            .frame(width: ControlGrid.columnWidth, alignment: .leading)
+        }
+    }
+
+    private var intervalPicker: some View {
+        ControlGrid.row(label: "every") {
+            Picker("", selection: intervalBinding) {
+                ForEach(AppModel.intervalChoices, id: \.self) { ms in
+                    Text(DurationFormat.duration(ms)).tag(ms)
                 }
             }
-
-            Divider()
-            ProviderPicker(model: model)
-            Divider()
-
-            Button("Quit QuotaBar") { model.quit() }
-                .buttonStyle(.borderless)
-                .font(.system(size: 11))
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .frame(width: ControlGrid.pickerWidth)
         }
+    }
+
+    private var quitButton: some View {
+        Button("Quit QuotaBar") { model.quit() }
+            .buttonStyle(.borderless)
+            .font(.system(size: 11))
     }
 
     /// Refresh shows what it is doing: a spinner and a changed label while the
@@ -204,10 +211,7 @@ struct ProviderPicker: View {
     private static let noneTag = ""
 
     var body: some View {
-        HStack(spacing: 4) {
-            Text("provider")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+        ControlGrid.row(label: "provider") {
             Picker("", selection: selection) {
                 ForEach(model.snapshots) { item in
                     Text(item.displayName).tag(item.id)
@@ -216,7 +220,7 @@ struct ProviderPicker: View {
             }
             .labelsHidden()
             .pickerStyle(.menu)
-            .frame(width: 140)
+            .frame(width: ControlGrid.pickerWidth)
         }
     }
 
@@ -240,6 +244,30 @@ enum VerdictStyle {
         case .short: .orange
         case .blocked: .red
         case .unknown: .secondary
+        }
+    }
+}
+
+/// Shared metrics for the panel's controls.
+///
+/// Every labelled control is built through `row(label:content:)`, so the label
+/// column and the picker column have one width each. Without this each control
+/// sized itself: "every" and "provider" are different words, and the two
+/// pickers were separately framed at 82 and 140 points, so nothing lined up.
+enum ControlGrid {
+    static let labelWidth: CGFloat = 46
+    static let pickerWidth: CGFloat = 104
+    static let columnWidth: CGFloat = labelWidth + 4 + pickerWidth
+    static let columnSpacing: CGFloat = 8
+    static let rowSpacing: CGFloat = 6
+
+    static func row<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: labelWidth, alignment: .leading)
+            content()
         }
     }
 }
