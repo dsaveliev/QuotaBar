@@ -1,0 +1,25 @@
+# Normalise line endings in the repository, check them out per platform.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending translated.
+*.png binary
+*.jpg binary
+*.gif binary
+*.icns binary
+*.pdf binary
+
+# The fixtures are captured payloads: their exact bytes are the point.
+Fixtures/*.json -text
+
+# Generated and vendored, kept out of language statistics and diffs.
+.build/ linguist-generated=true
+build/ linguist-generated=true
+openspec/changes/archive/ linguist-generated=true
+
+# Marking the entry points helps GitHub pick a language and a colour.
+Package.swift linguist-language=Swift
+Sources/QuotaBarKit linguist-language=Swift
+Sources/QuotaBar linguist-language=Swift
+Sources/QuotaBarKitTests linguist-language=Swift
+
+*.sh linguist-language=Shell

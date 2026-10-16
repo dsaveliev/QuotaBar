@@ -11,24 +11,24 @@ enum ZaiProviderTests {
             Harness.expectEqual(rows.map(\.label), ["5h", "7d"], "labels")
             Harness.expectEqual(rows[0].percent, 1, "5h percent")
             Harness.expectEqual(rows[0].windowMs, fiveHoursMs, "5h window")
-            Harness.expectEqual(rows[1].percent, 52, "7d percent")
+            Harness.expectEqual(rows[1].percent, 40, "7d percent")
             Harness.expectEqual(rows[1].windowMs, weekMs, "7d window")
         }),
         ("currentValue wins over the plan-total usage field", {
             let rows = ZaiProvider().parse(try Fixtures.json("zai-limits.json"))
-            // limits[0]: usage 12000 (plan total) but currentValue 0 (this window)
+            // limits[0]: usage 1000 (plan total) but currentValue 0 (this window)
             Harness.expectEqual(rows[0].usage, 0, "5h usage is the window's currentValue")
-            Harness.expectEqual(rows[1].usage, 31_205, "7d usage is the window's currentValue")
+            Harness.expectEqual(rows[1].usage, 2_000, "7d usage is the window's currentValue")
         }),
         ("the limit is the sum of consumed and remaining", {
             let rows = ZaiProvider().parse(try Fixtures.json("zai-limits.json"))
-            Harness.expectEqual(rows[0].limit, 11_999, "5h limit")
-            Harness.expectEqual(rows[1].limit, 59_999, "7d limit")
+            Harness.expectEqual(rows[0].limit, 999, "5h limit")
+            Harness.expectEqual(rows[1].limit, 5_000, "7d limit")
         }),
         ("reset timestamps are carried through unchanged", {
             let rows = ZaiProvider().parse(try Fixtures.json("zai-limits.json"))
-            Harness.expectEqual(rows[0].resetAt, 1_792_160_835_161, "5h resetAt")
-            Harness.expectEqual(rows[1].resetAt, 1_792_577_321_993, "7d resetAt")
+            Harness.expectEqual(rows[0].resetAt, 1_792_003_600_000, "5h resetAt")
+            Harness.expectEqual(rows[1].resetAt, 1_792_585_200_000, "7d resetAt")
         }),
         ("an explicit percentage wins over one derived from the counts", {
             let rows = ZaiProvider().parse(try Fixtures.json("zai-limits.json"))
@@ -133,8 +133,8 @@ enum MiniMaxProviderTests {
         ("the live payload parses into a 5h and a 7d row", {
             let rows = MiniMaxProvider().parse(try Fixtures.json("minimax-token-plan-remains.json"))
             Harness.expectEqual(rows.map(\.label), ["5h", "7d"], "labels")
-            Harness.expectEqual(rows[0].percent, 16, "5h percent")
-            Harness.expectEqual(rows[1].percent, 40, "7d percent")
+            Harness.expectEqual(rows[0].percent, 20, "5h percent")
+            Harness.expectEqual(rows[1].percent, 50, "7d percent")
         }),
         ("consumed percent is the complement of the reported remaining percent", {
             let payload: [String: Any] = [
@@ -154,9 +154,9 @@ enum MiniMaxProviderTests {
         }),
         ("rows carry percent-space pseudo-usage and a pseudo-limit of 100", {
             let rows = MiniMaxProvider().parse(try Fixtures.json("minimax-token-plan-remains.json"))
-            Harness.expectEqual(rows[0].usage, 16, "5h usage in percent points")
+            Harness.expectEqual(rows[0].usage, 20, "5h usage in percent points")
             Harness.expectEqual(rows[0].limit, 100, "5h pseudo-limit")
-            Harness.expectEqual(rows[1].usage, 40, "7d usage in percent points")
+            Harness.expectEqual(rows[1].usage, 50, "7d usage in percent points")
             Harness.expectEqual(rows[1].limit, 100, "7d pseudo-limit")
         }),
         ("window durations are the plan's declared 5h and 7d", {

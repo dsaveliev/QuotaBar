@@ -7,24 +7,24 @@
         "type": "CREDIT_LIMIT",
         "unit": 3,
         "number": 5,
-        "usage": 12000,
+        "usage": 1000,
         "currentValue": 0,
-        "remaining": 11999,
+        "remaining": 999,
         "percentage": 1,
-        "nextResetTime": 1792160835161
+        "nextResetTime": 1792003600000
       },
       {
         "type": "CREDIT_LIMIT",
         "unit": 6,
         "number": 1,
-        "usage": 60000,
-        "currentValue": 31205,
-        "remaining": 28794,
-        "percentage": 52,
-        "nextResetTime": 1792577321993
+        "usage": 5000,
+        "currentValue": 2000,
+        "remaining": 3000,
+        "percentage": 40,
+        "nextResetTime": 1792585200000
       }
     ],
-    "level": "pro"
+    "level": "basic"
   },
   "success": true
 }

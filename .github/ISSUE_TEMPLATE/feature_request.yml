@@ -1,0 +1,34 @@
+name: Feature request
+description: Ask for behaviour that does not exist yet
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project is specified before it is built: every behaviour lives as a
+        requirement in `openspec/specs/`, and changes are proposed as a change
+        directory before any code is written. If you want behaviour, the usual
+        shape is to open an issue describing it and agree on what it should do
+        before it becomes a change.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: The situation you are in, before any solution is proposed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like to happen
+      description: In terms of what you would see, not how to implement it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you have tried or considered
+      description: Including a workaround, if you found one.

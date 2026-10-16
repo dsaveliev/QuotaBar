@@ -1,15 +1,25 @@
 # QuotaBar
 
+[![CI](https://github.com/dsaveliev/QuotaBar/actions/workflows/ci.yml/badge.svg)](https://github.com/dsaveliev/QuotaBar/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![macOS](https://img.shields.io/badge/macOS-13%2B-lightgrey.svg)](https://www.apple.com/macos/)
+[![Swift](https://img.shields.io/badge/swift-6-orange.svg)](Package.swift)
+
 A macOS menu bar agent that shows how much of your **Z.ai** and **MiniMax**
 coding-plan allowance is left, and — the part that matters — **whether the
 current pace outlasts the window**.
+
+<!-- A screenshot of the open panel belongs here. It should show invented
+     numbers: the real panel shows your real usage, and this repository is
+     public. -->
 
 ```
 zai ✓
 ```
 
 One item, whichever provider you last selected: the subscription and its state,
-nothing else. Six characters that never change width. Both subscriptions are polled at
+nothing else, in a label whose width never changes. Hover it for the figures;
+open it for the bars. Both subscriptions are polled at
 once and independently of anything else on the machine: there is no editor,
 terminal agent, or OpenCode session involved. The app runs at login, reads your
 credentials from the file OpenCode already writes, and keeps a single status
@@ -34,6 +44,19 @@ resets in 3d 4h            runway ~10d
 
 The runway line has the same shape whatever the verdict; a shortfall is said on
 the muted line beneath it, never by colouring the number.
+
+## Contents
+
+- [What the numbers mean](#what-the-numbers-mean)
+- [Where the runway comes from](#where-the-runway-comes-from)
+- [Credentials](#credentials)
+- [Install](#install)
+- [Choosing which provider to show](#choosing-which-provider-to-show)
+- [Controls](#controls)
+- [Troubleshooting](#troubleshooting)
+- [Architecture](#architecture)
+- [Development](#development)
+- [Privacy](#privacy)
 
 ## What the numbers mean
 
@@ -236,6 +259,26 @@ Four design notes worth knowing before changing things:
   that is non-zero, a Z.ai `code` at or above 400) falls through to the next
   endpoint.
 
+## Development
+
+```sh
+swift build                 # compile
+swift run QuotaBarKitTests  # 149 cases
+./scripts/install.sh        # build, install, register at login
+```
+
+`swift test` does not work and is not an oversight: this toolchain ships
+neither XCTest nor the swift-testing module, so the suite is an executable
+target with a small lock-based harness that exits non-zero on failure.
+
+Behaviour is **specified before it is built**. Every requirement lives in
+`openspec/specs/`, each change is a directory under `openspec/changes/` with a
+proposal, deltas, a design note and tasks, and archiving a change folds its
+deltas into the specs. That way a change is reviewable twice: once as
+behaviour, once as code.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.
+
 ### Tests
 
 `swift test` does not work on a Command Line Tools-only install — neither
@@ -248,8 +291,9 @@ swift run QuotaBarKitTests
 
 It covers the row model, formatting, the sample history and its boundary resets,
 every runway state, the full verdict ladder including each equality boundary,
-both payload parsers against fixtures captured from the live endpoints
-(`Fixtures/`), credential precedence, the error taxonomy, in-flight
+both payload parsers against payloads captured from the live endpoints with
+their values replaced (`Fixtures/`, and see `Fixtures/README.md` for what each
+one keeps and why), credential precedence, the error taxonomy, in-flight
 deduplication, endpoint stickiness, staleness, which menu bar items should
 exist for a given selection, persistence round-trips, and the guarantee that no
 token ever reaches a rendered surface or the disk.
@@ -262,6 +306,17 @@ token ever reaches a rendered surface or the disk.
 - Makes exactly two kinds of network request: each subscription's own quota
   endpoint, over https, bearer-authenticated. Nothing else is contacted.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and feature requests use the
+issue templates — the logs the app writes are the most useful thing to attach.
+
+## Security
+
+Report a vulnerability privately rather than in a public issue; see
+[SECURITY.md](SECURITY.md) for what is in scope and what is simply the app
+doing its job.
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

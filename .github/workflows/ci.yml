@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A new push to the same branch makes the in-flight run irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, test, assemble
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Toolchain
+        run: swift --version
+
+      # `swift test` cannot run here: this toolchain ships neither XCTest nor
+      # the swift-testing module, so the suite is an executable that reports and
+      # exits non-zero. Running `swift test` would pass vacuously.
+      - name: Build
+        run: swift build -v
+
+      - name: Test
+        run: swift run QuotaBarKitTests
+
+      # The install path is part of the product: if the bundle stops assembling,
+      # `install.sh` is broken for everyone.
+      - name: Assemble the app bundle
+        run: ./scripts/build-app.sh
+
+      - name: The bundle is a well-formed .app
+        run: |
+          test -d build/QuotaBar.app/Contents/MacOS
+          test -f build/QuotaBar.app/Contents/Info.plist
+          plutil -lint build/QuotaBar.app/Contents/Info.plist
+          # No unsigned bundle may reach a user's Applications folder.
+          codesign --verify --strict build/QuotaBar.app

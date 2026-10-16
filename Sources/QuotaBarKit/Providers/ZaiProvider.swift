@@ -8,10 +8,10 @@ import Foundation
 /// Payload shape (captured live from the user's own plan):
 /// ```
 /// { "code": 200, "success": true, "data": {
-///     "limits": [ { "type": "CREDIT_LIMIT", "unit": 3, "usage": 12000,
-///                   "currentValue": 0, "remaining": 11999, "percentage": 1,
-///                   "nextResetTime": 1792160835161 }, … ],
-///     "level": "pro" } }
+///     "limits": [ { "type": "CREDIT_LIMIT", "unit": 3, "usage": 1000,
+///                   "currentValue": 0, "remaining": 999, "percentage": 1,
+///                   "nextResetTime": 1792003600000 }, … ],
+///     "level": "basic" } }
 /// ```
 /// `unit` 3 is the five-hour window, 6 the weekly one. `currentValue` is what
 /// has been consumed inside the current window and takes precedence over the

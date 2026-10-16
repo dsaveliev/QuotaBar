@@ -1,0 +1,56 @@
+name: Bug report
+description: Something behaves differently from what the spec says
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing this. The logs are the most useful thing you can
+        attach — `~/Library/Logs/QuotaBar/quotabar.err.log` — and they are
+        written by the app on every change to the menu bar.
+
+        Do not paste tokens. If a log line ever contained one, say so below.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+      placeholder: The menu bar item kept reading `mmx …` and never showed figures.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce it
+      placeholder: |
+        1. Start the app
+        2. Open the panel
+        3. Switch provider to MiniMax
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: macOS and Swift
+      description: macOS version from Settings → General, and `swift --version`.
+      placeholder: macOS 15.6 · Swift 6.1.2
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log lines
+      description: The relevant part of quotabar.err.log, not the whole file.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you file
+      options:
+        - label: I checked that this is not already filed.
+        - label: The log excerpt above contains no API token or credential.
