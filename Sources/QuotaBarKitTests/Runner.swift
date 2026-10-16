@@ -1,6 +1,6 @@
 import Foundation
 
-/// Suite entry point. Run with `swift run quotabar-tests`.
+/// Suite entry point. Run with `swift run QuotaBarKitTests`.
 ///
 /// This is an executable rather than a `.testTarget` because the installed
 /// toolchain ships neither XCTest nor the swift-testing module, so `swift test`

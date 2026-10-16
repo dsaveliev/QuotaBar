@@ -22,25 +22,59 @@ zai ✓
 
 One item, whichever provider you last selected: the subscription and its state,
 nothing else, in a label whose width never changes. Hover it for the figures;
-open it for the bars. Both subscriptions are polled at
-once and independently of anything else on the machine: there is no editor,
-terminal agent, or OpenCode session involved. The app runs at login, reads your
-credentials from the file OpenCode already writes, and keeps a single status
-item in the menu bar. One entrance to the panel means there is never a question
-of which item a figure belongs to.
+open it for the bars. Both subscriptions are polled at once and independently of
+anything else on the machine — there is no editor, terminal agent, or OpenCode
+session involved. The app runs at login, reads two environment variables, and
+keeps a single status item in the menu bar. One entrance to the panel means
+there is never a question of which item a figure belongs to.
 
 The runway line has the same shape whatever the verdict, so the numbers never
 jump around while you read them. A shortfall is said on the muted line beneath
 it, never by colouring the number. A window still gathering evidence says how
 far along it is rather than guessing.
 
-The marker on each bar is *now*: fill to the left of it is quota consumed so
-far, and the gap to the right edge is how much of the window's time is left.
-
 The label is drawn in a font where every character is the same width, and the
 glyph is reserved two characters, so `zai ✓` and `zai!!` are the same length and
 the item cannot resize — not as figures change, since it carries none, and not
 as the verdict changes either. The figures are not in the label: hover for them.
+
+## Contents
+
+- [What the numbers mean](#what-the-numbers-mean)
+- [Where the runway comes from](#where-the-runway-comes-from)
+- [Credentials](#credentials)
+- [Install](#install)
+- [Choosing which provider to show](#choosing-which-provider-to-show)
+- [Controls](#controls)
+- [Troubleshooting](#troubleshooting)
+- [Architecture](#architecture)
+- [Development](#development)
+- [Privacy](#privacy)
+- [Contributing](#contributing)
+- [Security](#security)
+
+## What the numbers mean
+
+The menu bar item carries a verdict, not a number. Hovering it reads the whole
+picture out:
+
+```
+MiniMax — 5h 58%, 7d 47% · ! close to the reset · updated 3m ago
+```
+
+Each window gets its own verdict, and the glyph and the bar colour follow that
+verdict rather than the raw percentage:
+
+| Glyph | Verdict | Meaning |
+| --- | --- | --- |
+| `✓` | ok | the projection comfortably outlasts the reset |
+| `!` | tight | the projection lands within 1.5× the distance to the reset |
+| `!!` | short | at this pace the quota runs dry **before** it resets |
+| `✗` | blocked | the limit is already reached |
+| `?` | unknown | not enough evidence yet — a fresh install, or stale data |
+
+The marker on each bar is *now*: fill to the left of it is quota consumed so
+far, and the gap to the right edge is how much of the window's time is left.
 
 ## Where the runway comes from
 
@@ -48,8 +82,9 @@ Runway is a burn-rate projection, not a guess:
 
 1. Every refresh records one usage sample per window, in a history keyed by
    `provider:window`, so the two subscriptions never mix.
-2. Once at least two samples span a minute, burn rate is
-   `(newest − oldest usage) ÷ elapsed`.
+2. Once at least two samples span a second, burn rate is
+   `(newest − oldest usage) ÷ elapsed`. A second is enough to compute a rate;
+   deciding whether to *trust* it is a separate, stricter rule — see below.
 3. `runway = (limit − usage) ÷ burn rate`, compared against `reset − now`.
 4. A verdict needs evidence proportional to the window: at least **1/20 of its
    own duration**. A five-hour window therefore needs fifteen minutes and a
@@ -96,7 +131,6 @@ This replaced an earlier dependency on `~/.local/share/opencode/auth.json`.
 **That is a breaking change**: if you were relying on the file, export the
 variables instead.
 
-## Install
 ## Install
 
 Requires macOS 13+ and a Swift 6 toolchain (Command Line Tools are enough — no
@@ -160,8 +194,9 @@ switches the menu bar item immediately — no restart, and the panel stays open.
 Both subscriptions keep polling and keep their sample history either way, so
 switching back costs nothing.
 
-Pick **Show none** and the menu bar item becomes a plain `QuotaBar` whose panel
-is just the picker. You are never left without a way back.
+Pick **Show none** and the menu bar item becomes `QuotaBar` with a checklist
+symbol. Its panel says no providers are shown and offers the picker and Quit —
+you are never left without a way back.
 
 The choice is remembered across restarts.
 
@@ -170,7 +205,7 @@ The choice is remembered across restarts.
 Each panel carries its own controls, so they are always one click away:
 
 - **Refresh** — refresh both subscriptions immediately.
-- **every** — the polling cadence: 30s, 60s, 2m, 5m, or 15m.
+- **every** — the polling cadence: 30s, 1m, 2m, 5m, or 15m.
 - **provider** — the picker described above, `Show none` included.
 - **Quit** — the app exits and stays out until you start it again.
 
@@ -181,12 +216,12 @@ current cadence.
 
 | Symptom | Cause |
 | --- | --- |
-| Label reads `zai ?` | the last refresh failed; open the dropdown for the reason |
+| Label reads `zai ?` | either the last refresh failed — open the dropdown for the reason — or the figures are restored from the previous run and no refresh this launch has confirmed them yet. The panel tells them apart: live figures with a withheld verdict means restored |
 | Label reads `zai …` | no successful refresh yet |
-| `no token — set ZAI_TOKEN, then run ./scripts/install.sh` | the agent cannot see the variable; re-run the installer after exporting it |
+| `no token — set ZAI_TOKEN, then run ./scripts/install.sh so the agent can see it` | the agent cannot see the variable; re-run the installer after exporting it |
 | `http-401` / `http-403` | the stored token is rejected by the provider |
 | `empty` | the endpoint's envelope succeeded but carried no quota windows |
-| `timeout` / `network error` | the endpoint did not answer in time |
+| `timeout` / `network` | the endpoint did not answer in time |
 | `stale` in the header | refreshes stopped landing for more than two intervals |
 
 Logs, if you need them: `~/Library/Logs/QuotaBar/quotabar.err.log`.
@@ -212,14 +247,13 @@ Four design notes worth knowing before changing things:
   refresh is in flight, further triggers (timer, panel open, Refresh) join that
   same request instead of starting another. The deduplication is an invariant of
   the actor, not a guard scattered across call sites.
-- **The menu bar is reconciled, not declared.** The status item is an
-  `NSStatusItem`
-  created and removed to match the current selection, rather than SwiftUI
-  `MenuBarExtra` slots bound to `isInserted:`. A variable number of scene slots
-  was observed to drop an item silently; here a missing item is a visible bug in
-  one `reconcile()` function. Each item's panel is an `NSPopover` hosting real
-  SwiftUI, so bars and colour render as interface elements rather than as
-  flattened menu rows.
+- **The menu bar is reconciled, not declared.** The status item is a single
+  `NSStatusItem` created once at launch, rather than SwiftUI `MenuBarExtra`
+  slots bound to `isInserted:`. A variable number of scene slots was observed to
+  drop an item silently. Because the item never changes identity, switching
+  provider cannot destroy and rebuild it: the label is repainted in place and an
+  open panel stays open. Its panel is an `NSPopover` hosting real SwiftUI, so
+  bars and colour render as interface elements rather than flattened menu rows.
 - **The log names the menu bar contents.** A menu bar agent has no window to
   complain in, so every change to the set of items is written to
   `~/Library/Logs/QuotaBar/quotabar.err.log` as `menu bar: …`.
@@ -262,8 +296,9 @@ swift run QuotaBarKitTests
 It covers the row model, formatting, the sample history and its boundary resets,
 every runway state, the full verdict ladder including each equality boundary,
 both payload parsers against payloads captured from the live endpoints with
-their values replaced (`Fixtures/`, and see `Fixtures/README.md` for what each
-one keeps and why), credential precedence, the error taxonomy, in-flight
+their consumption figures replaced (`Fixtures/`; that README lists what was
+replaced and what was deliberately kept), credential resolution, the error
+taxonomy, in-flight
 deduplication, endpoint stickiness, staleness, which menu bar items should
 exist for a given selection, persistence round-trips, and the guarantee that no
 token ever reaches a rendered surface or the disk.

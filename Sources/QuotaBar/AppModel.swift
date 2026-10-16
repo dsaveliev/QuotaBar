@@ -16,11 +16,6 @@ final class AppModel: ObservableObject {
     /// Refresh cadences offered in the interval picker.
     static let intervalChoices: [Double] = [30_000, 60_000, 120_000, 300_000, 900_000]
 
-    /// How many menu bar slots the app scene declares. Slots past the number
-    /// of tracked subscriptions are simply never inserted, so a new provider
-    /// needs no scene surgery while it stays within this count.
-    static let slotCount = 4
-
     @Published private(set) var snapshots: [SubscriptionSnapshot] = []
     /// True while a refresh is in flight, so the panel can show what the button
     /// is doing instead of appearing inert.
@@ -35,10 +30,6 @@ final class AppModel: ObservableObject {
     private var intervalMs: Double
 
     init(home: URL = FileManager.default.homeDirectoryForCurrentUser) {
-        precondition(
-            ProviderRegistry.all.count <= Self.slotCount,
-            "QuotaBarApp declares \(Self.slotCount) menu bar slots; add one there for the new provider"
-        )
         self.home = home
         let directory = AppPaths.directory(home: home)
         AppPaths.ensureDirectory(at: directory)
