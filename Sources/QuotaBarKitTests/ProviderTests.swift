@@ -226,13 +226,55 @@ enum MiniMaxProviderTests {
         }),
         ("both providers declare the auth keys and env names the spec pins", {
             Harness.expectEqual(ZaiProvider().authKeys, ["zai-coding-plan", "zai"], "zai auth keys")
-            Harness.expectEqual(ZaiProvider().tokenEnvNames, ["ZAI_TOKEN", "Z_AI_TOKEN"], "zai env")
+            Harness.expectEqual(ZaiProvider().tokenEnvNames, ["ZAI_TOKEN"], "zai env")
             Harness.expectEqual(
                 MiniMaxProvider().authKeys,
                 ["minimax-coding-plan", "minimax-cn-coding-plan", "minimax"],
                 "minimax auth keys"
             )
-            Harness.expectEqual(MiniMaxProvider().tokenEnvNames, ["MINIMAX_API_KEY"], "minimax env")
+            Harness.expectEqual(MiniMaxProvider().tokenEnvNames, ["MINIMAX_TOKEN"], "minimax env")
+
+            // One scheme, and it is predictable from the provider's name.
+            Harness.expect(
+                ZaiProvider().tokenEnvNames.allSatisfy { $0.hasSuffix("_TOKEN") }
+                    && MiniMaxProvider().tokenEnvNames.allSatisfy { $0.hasSuffix("_TOKEN") },
+                "both follow <PROVIDER>_TOKEN"
+            )
+        }),
+        ("the retired environment names are no longer read", {
+            // A breaking change, pinned so it cannot be reverted by accident:
+            // someone with MINIMAX_API_KEY exported gets no token at all.
+            let store = CredentialStore(
+                readFile: { _ in throw CocoaError(.fileNoSuchFile) },
+                environment: {
+                    $0 == "MINIMAX_API_KEY" ? "retired" : nil
+                }
+            )
+            Harness.expectEqual(
+                store.resolve(for: MiniMaxProvider(), home: URL(fileURLWithPath: "/Users/tester"))?.token,
+                nil,
+                "the retired name resolves nothing"
+            )
+        }),
+        ("the missing-token messages are parallel", {
+            let zai = QuotaErrorCode.displayText(for: QuotaErrorCode.noToken.rawValue, provider: ZaiProvider())
+            let mini = QuotaErrorCode.displayText(for: QuotaErrorCode.noToken.rawValue, provider: MiniMaxProvider())
+            Harness.expect(zai.hasPrefix("no token — set "), "zai shape")
+            Harness.expect(mini.hasPrefix("no token — set "), "minimax shape")
+            Harness.expectEqual(
+                zai.replacingOccurrences(of: "ZAI_TOKEN", with: "VARIABLE"),
+                mini.replacingOccurrences(of: "MINIMAX_TOKEN", with: "VARIABLE"),
+                "identical but for the variable"
+            )
+        }),
+        ("an unreadable credentials file is not blamed on the environment", {
+            for provider in [ZaiProvider(), MiniMaxProvider()] as [any QuotaProvider] {
+                let text = QuotaErrorCode.displayText(
+                    for: QuotaErrorCode.noCredentialFile.rawValue, provider: provider
+                )
+                Harness.expect(text.contains("auth.json"), "\(provider.id) names the file")
+                Harness.expect(!text.contains("TOKEN"), "\(provider.id) does not suggest a variable")
+            }
         }),
     ]
 }

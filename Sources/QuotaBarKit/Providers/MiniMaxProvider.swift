@@ -26,7 +26,7 @@ public struct MiniMaxProvider: QuotaProvider {
     public let tag = "mmx"
     public let displayName = "MiniMax"
     public let authKeys = ["minimax-coding-plan", "minimax-cn-coding-plan", "minimax"]
-    public let tokenEnvNames = ["MINIMAX_API_KEY"]
+    public let tokenEnvNames = ["MINIMAX_TOKEN"]
     public let endpoints = [
         URL(string: "https://api.minimax.io/v1/token_plan/remains")!,
         URL(string: "https://api.minimax.cn/v1/token_plan/remains")!,
@@ -57,8 +57,8 @@ public struct MiniMaxProvider: QuotaProvider {
 
     public func errorText(_ code: QuotaErrorCode) -> String {
         switch code {
-        case .noToken: "no token (minimax login or MINIMAX_API_KEY)"
-        case .noCredentialFile: "no OpenCode credentials for MiniMax"
+        case .noToken: "no token — set MINIMAX_TOKEN, or sign in with OpenCode"
+        case .noCredentialFile: "no OpenCode credentials file at ~/.local/share/opencode/auth.json"
         default: code.rawValue
         }
     }

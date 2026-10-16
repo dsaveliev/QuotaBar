@@ -154,10 +154,10 @@ change.
 The system SHALL show a distinct label for each of the three data states — live,
 loading, and error — and SHALL keep the subscription's tag visible in every one
 of them. A missing credential SHALL be an error state like any other, with the
-dropdown rather than the label naming which credential is missing and where it
-is looked up, so the label stays narrow enough to read at a glance. Loading
-applies only before any figures exist; afterwards figures are shown and only
-the verdict is withheld.
+dropdown rather than the label naming which credential is missing, whether it is
+a missing file or a missing entry, and what to do about it. Loading applies
+only before any figures exist; afterwards figures are shown and only the verdict
+is withheld.
 
 #### Scenario: before the first refresh completes
 
@@ -175,8 +175,8 @@ the verdict is withheld.
 
 - **WHEN** no credential resolves for a subscription
 - **THEN** its label shows the error state's question mark rather than a
-  percent, and the dropdown states which credential is missing and where it is
-  looked up
+  percent, and the dropdown states which credential is missing and what to do
+  about it
 
 #### Scenario: the verdict is stated once
 
@@ -195,7 +195,13 @@ the verdict is withheld.
 - **WHEN** the app starts and a subscription has figures restored from a
   previous run that no refresh this launch has confirmed yet
 - **THEN** its label shows those figures immediately and withholds the verdict,
-  reading `?` until the first live answer arrives
+  ending in `?` until the first live answer arrives
+
+#### Scenario: an absent credentials file is named as such
+
+- **WHEN** the credential file could not be read at all
+- **THEN** the dropdown says there is no OpenCode credentials file and where it
+  belongs, and does not suggest setting an environment variable
 
 ### Requirement: Dropdown content
 

@@ -23,7 +23,7 @@ public struct ZaiProvider: QuotaProvider {
     public let tag = "zai"
     public let displayName = "Z.ai"
     public let authKeys = ["zai-coding-plan", "zai"]
-    public let tokenEnvNames = ["ZAI_TOKEN", "Z_AI_TOKEN"]
+    public let tokenEnvNames = ["ZAI_TOKEN"]
     public let endpoints = [
         URL(string: "https://api.z.ai/api/monitor/usage/quota/limit")!,
         URL(string: "https://open.bigmodel.cn/api/monitor/usage/quota/limit")!,
@@ -59,8 +59,8 @@ public struct ZaiProvider: QuotaProvider {
 
     public func errorText(_ code: QuotaErrorCode) -> String {
         switch code {
-        case .noToken: "no token (zai login or ZAI_TOKEN)"
-        case .noCredentialFile: "no OpenCode credentials for Z.ai"
+        case .noToken: "no token — set ZAI_TOKEN, or sign in with OpenCode"
+        case .noCredentialFile: "no OpenCode credentials file at ~/.local/share/opencode/auth.json"
         default: code.rawValue
         }
     }

@@ -134,7 +134,14 @@ public actor QuotaEngine {
         states[providerId] = state
 
         guard let credential = credentials.resolve(for: provider, home: home) else {
-            applyError(providerId: providerId, code: QuotaErrorCode.noToken.rawValue)
+            // A file that cannot be read at all and a file that reads but holds
+            // nothing for this provider need different corrections, so they are
+            // different outcomes. Telling someone to set an environment variable
+            // when the problem is a missing file is advice about the wrong thing.
+            let code: String = credentials.isAuthFileUnreadable(home: home)
+                ? QuotaErrorCode.noCredentialFile.rawValue
+                : QuotaErrorCode.noToken.rawValue
+            applyError(providerId: providerId, code: code)
             return
         }
 

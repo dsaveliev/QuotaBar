@@ -77,7 +77,11 @@ is picked up on the next tick. Order:
 1. `~/.local/share/opencode/auth.json`
    - Z.ai: `zai-coding-plan`, then `zai`
    - MiniMax: `minimax-coding-plan`, `minimax-cn-coding-plan`, then `minimax`
-2. Environment: `ZAI_TOKEN` / `Z_AI_TOKEN`, or `MINIMAX_API_KEY`
+2. Environment: `ZAI_TOKEN` or `MINIMAX_TOKEN`
+
+   One scheme, `<PROVIDER>_TOKEN`, and those are the only names read. The
+   earlier `Z_AI_TOKEN` and `MINIMAX_API_KEY` are **no longer consulted** — if
+   you had either exported, change it.
 
 The file is opened **read-only** and never written. The token is sent only to
 that subscription's own quota endpoint, as `Authorization: Bearer`, over

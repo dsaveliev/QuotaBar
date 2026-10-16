@@ -52,11 +52,12 @@ enum CredentialTests {
                 withoutFile.resolve(for: ZaiProvider(), home: home)?.source, .environment("ZAI_TOKEN"), "env source"
             )
         }),
-        ("environment names are tried in declaration order", {
-            let store = makeStore(authJSON: nil, env: ["Z_AI_TOKEN": "second-env"])
+        ("a single environment name is read, and it is the current one", {
+            let store = makeStore(authJSON: nil, env: ["ZAI_TOKEN": "from-env"])
             Harness.expectEqual(
-                store.resolve(for: ZaiProvider(), home: home)?.token, "second-env", "second env name"
+                store.resolve(for: ZaiProvider(), home: home)?.token, "from-env", "current name"
             )
+            Harness.expectEqual(ZaiProvider().tokenEnvNames, ["ZAI_TOKEN"], "exactly one name")
         }),
         ("a malformed credential file falls through to the environment silently", {
             let store = makeStore(authJSON: "{not json", env: ["ZAI_TOKEN": "from-env"])

@@ -245,12 +245,17 @@ enum EngineFixture {
     {"zai-coding-plan": {"key": "zai-token"}, "minimax-coding-plan": {"key": "mmx-token"}}
     """
 
+    private static let unreadableRead: @Sendable (URL) throws -> Data = { _ in
+        throw CocoaError(.fileNoSuchFile)
+    }
+
     static func make(
         providers: [any QuotaProvider] = [ZaiProvider(), MiniMaxProvider()],
         authJSON: String = EngineFixture.defaultAuthJSON,
         start: EpochMillis = 1_700_000_000_000,
         respond: @escaping @Sendable (URL, Int) -> QuotaFetchResult = flatWindow,
-        restoredJSON: String = ""
+        restoredJSON: String = "",
+        authReadable: Bool = true
     ) async -> Fixture {
         let clock = FakeClock(start)
         let file = MemoryFile(Data(authJSON.utf8))
@@ -258,8 +263,10 @@ enum EngineFixture {
         let calls = CallRecorder()
         let sink = SnapshotSink()
 
+        // `authReadable: false` is the case the app used to confuse with "the
+        // file has no entry for me": a credential file that cannot be read.
         let credentials = CredentialStore(
-            readFile: file.read,
+            readFile: authReadable ? file.read : unreadableRead,
             environment: { _ in nil }
         )
         let client = QuotaHTTPClient(timeoutMs: 1_000, transport: { url, _, _ in
@@ -366,7 +373,7 @@ enum QuotaEngineTests {
             // nothing left to vary. It earns its place by failing if a field is
             // ever added back without reserving its width.
             for verdict in [Verdict.ok, .tight, .short, .blocked, .unknown] {
-                for percents in [[9.0, 9.0], [100.0, 100.0], [nil, nil], [1.0, 100.0]] {
+                for percents in ([[9.0, 9.0], [100.0, 100.0], [nil, nil], [1.0, 100.0]] as [[Double?]]) {
                     let twoWindows = label(windowCount: 2, percents: percents, verdict: verdict)
                     Harness.expectEqual(
                         twoWindows.count, 5,
@@ -661,6 +668,26 @@ enum QuotaEngineTests {
             Harness.expectEqual(fixture.published.snapshot(id: "zai")?.state, .live, "polling continues")
         }),
 
+        ("an absent credentials file is not the same as an absent entry", {
+            // The bug this pins: both used to read "no token", so a user with no
+            // credential file was told to set an environment variable.
+            let absent = await EngineFixture.make(authJSON: "", authReadable: false)
+            await absent.engine.refresh(providerId: "zai")
+            Harness.expectEqual(
+                await code(of: absent, id: "zai"), "no-credential-file",
+                "the file could not be read at all"
+            )
+
+            let presentButEmpty = await EngineFixture.make(
+                authJSON: #"{"unrelated": {"key": "x"}}"#
+            )
+            await presentButEmpty.engine.refresh(providerId: "zai")
+            Harness.expectEqual(
+                await code(of: presentButEmpty, id: "zai"), "no-token",
+                "the file was read and held nothing for zai"
+            )
+        }),
+
         ("a window with nothing to project is not measuring, it is absent", {
             // No limit and no reset: the projection has no inputs at all, so
             // there is no evidence to gather and nothing to wait for. Reading
@@ -792,7 +819,16 @@ enum QuotaEngineTests {
     ]
 }
 
+/// The error code a published snapshot is carrying, or nil when it is not in
+/// the error state.
 @MainActor
+private func code(of fixture: EngineFixture.Fixture, id: String) -> String? {
+    guard case .error(let code) = fixture.published.latest.first { $0.id == id }?.state else {
+        return nil
+    }
+    return code
+}
+
 private func windowState(_ engine: QuotaEngine, providerId: String) async -> Verdict? {
     await engine.snapshots().first { $0.id == providerId }?.windows.first?.verdict
 }
