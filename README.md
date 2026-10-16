@@ -71,23 +71,32 @@ discards that window's samples and starts over.
 
 ## Credentials
 
-The token is resolved **on every refresh**, so logging in after the app started
-is picked up on the next tick. Order:
+The token comes from the environment, and only from the environment. Export one
+variable per subscription:
 
-1. `~/.local/share/opencode/auth.json`
-   - Z.ai: `zai-coding-plan`, then `zai`
-   - MiniMax: `minimax-coding-plan`, `minimax-cn-coding-plan`, then `minimax`
-2. Environment: `ZAI_TOKEN` or `MINIMAX_TOKEN`
+| Subscription | Variable |
+| --- | --- |
+| Z.ai | `ZAI_TOKEN` |
+| MiniMax | `MINIMAX_TOKEN` |
 
-   One scheme, `<PROVIDER>_TOKEN`, and those are the only names read. The
-   earlier `Z_AI_TOKEN` and `MINIMAX_API_KEY` are **no longer consulted** — if
-   you had either exported, change it.
+```sh
+export ZAI_TOKEN=…
+export MINIMAX_TOKEN=…
+./scripts/install.sh
+```
 
-The file is opened **read-only** and never written. The token is sent only to
-that subscription's own quota endpoint, as `Authorization: Bearer`, over
-https. It is never logged, never written to disk, and never rendered — including
-in error text, which names *where* to put a credential rather than echoing one.
+**The installer must run after you export them.** QuotaBar is a login agent, and
+a login agent inherits launchd's environment, not your shell's — a variable you
+export in `~/.zshrc` is invisible to it. `install.sh` reads the two variables
+and writes them into `~/Library/LaunchAgents/dev.dmitrii.quotabar.plist` with
+owner-only permissions, which is how the agent gets them at login. That plist
+therefore holds your tokens in plain text; `uninstall.sh` removes it.
 
+This replaced an earlier dependency on `~/.local/share/opencode/auth.json`.
+**That is a breaking change**: if you were relying on the file, export the
+variables instead.
+
+## Install
 ## Install
 
 Requires macOS 13+ and a Swift 6 toolchain (Command Line Tools are enough — no
@@ -174,7 +183,7 @@ current cadence.
 | --- | --- |
 | Label reads `zai ?` | the last refresh failed; open the dropdown for the reason |
 | Label reads `zai …` | no successful refresh yet |
-| `no token (zai login or ZAI_TOKEN)` | nothing in `auth.json` and no env var |
+| `no token — set ZAI_TOKEN, then run ./scripts/install.sh` | the agent cannot see the variable; re-run the installer after exporting it |
 | `http-401` / `http-403` | the stored token is rejected by the provider |
 | `empty` | the endpoint's envelope succeeded but carried no quota windows |
 | `timeout` / `network error` | the endpoint did not answer in time |
@@ -261,11 +270,15 @@ token ever reaches a rendered surface or the disk.
 
 ## Privacy
 
-- Reads `~/.local/share/opencode/auth.json` (read-only, never modified).
+- Reads only the environment for a token. No credential file is opened, read, or
+  required.
 - Writes only inside `~/Library/Application Support/QuotaBar` and
-  `~/Library/Logs/QuotaBar`.
+  `~/Library/Logs/QuotaBar`. The app itself never writes a token to disk.
 - Makes exactly two kinds of network request: each subscription's own quota
   endpoint, over https, bearer-authenticated. Nothing else is contacted.
+- The installer writes the token into the login agent's plist, owner-readable.
+  That is the launchd's own mechanism for passing variables to an agent, and it
+  is where the token lives between login and launch.
 
 ## Contributing
 

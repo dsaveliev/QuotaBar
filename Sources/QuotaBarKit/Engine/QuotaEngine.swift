@@ -28,7 +28,6 @@ public actor QuotaEngine {
     private let client: QuotaHTTPClient
     private let historyStore: HistoryStore
     private let snapshotStore: SnapshotStore
-    private let home: URL
     private var intervalMs: Double = Settings.defaultIntervalMs
     private var tightFactor: Double = 1.5
     private var maxHistorySamples: Double = 120
@@ -41,7 +40,6 @@ public actor QuotaEngine {
         client: QuotaHTTPClient,
         historyStore: HistoryStore,
         snapshotStore: SnapshotStore,
-        home: URL,
         tightFactor: Double = 1.5,
         maxHistorySamples: Double = 120,
         now: @escaping @Sendable () -> EpochMillis = Clock.now
@@ -73,7 +71,6 @@ public actor QuotaEngine {
         self.client = client
         self.historyStore = historyStore
         self.snapshotStore = snapshotStore
-        self.home = home
         self.tightFactor = tightFactor
         self.maxHistorySamples = maxHistorySamples
         self.now = now
@@ -133,15 +130,8 @@ public actor QuotaEngine {
         state.lastAttemptAt = now()
         states[providerId] = state
 
-        guard let credential = credentials.resolve(for: provider, home: home) else {
-            // A file that cannot be read at all and a file that reads but holds
-            // nothing for this provider need different corrections, so they are
-            // different outcomes. Telling someone to set an environment variable
-            // when the problem is a missing file is advice about the wrong thing.
-            let code: String = credentials.isAuthFileUnreadable(home: home)
-                ? QuotaErrorCode.noCredentialFile.rawValue
-                : QuotaErrorCode.noToken.rawValue
-            applyError(providerId: providerId, code: code)
+        guard let credential = credentials.resolve(for: provider) else {
+            applyError(providerId: providerId, code: QuotaErrorCode.noToken.rawValue)
             return
         }
 

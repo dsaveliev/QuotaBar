@@ -22,7 +22,6 @@ public struct ZaiProvider: QuotaProvider {
     public let id = "zai"
     public let tag = "zai"
     public let displayName = "Z.ai"
-    public let authKeys = ["zai-coding-plan", "zai"]
     public let tokenEnvNames = ["ZAI_TOKEN"]
     public let endpoints = [
         URL(string: "https://api.z.ai/api/monitor/usage/quota/limit")!,
@@ -59,8 +58,7 @@ public struct ZaiProvider: QuotaProvider {
 
     public func errorText(_ code: QuotaErrorCode) -> String {
         switch code {
-        case .noToken: "no token — set ZAI_TOKEN, or sign in with OpenCode"
-        case .noCredentialFile: "no OpenCode credentials file at ~/.local/share/opencode/auth.json"
+        case .noToken: "no token — set ZAI_TOKEN, then run ./scripts/install.sh so the agent can see it"
         default: code.rawValue
         }
     }

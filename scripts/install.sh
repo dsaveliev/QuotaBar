@@ -25,8 +25,41 @@ echo "==> Installing ${APP}"
 rm -rf "${APP}"
 cp -R build/QuotaBar.app "${APP}"
 
+echo "==> Reading tokens from the environment"
+# A LaunchAgent inherits launchd's environment, not your shell's, so a variable
+# exported in ~/.zshrc is invisible to it. The values must be written into the
+# plist for the agent to see them at all, which is why re-running this script is
+# part of setting a token rather than an optional extra.
+missing=""
+env_block=""
+for name in ZAI_TOKEN MINIMAX_TOKEN; do
+  if [ -n "${!name:-}" ]; then
+    echo "    found ${name}"
+    escaped=$(printf '%s' "${!name}" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
+    env_block="${env_block}        <key>${name}</key>
+        <string>${escaped}</string>
+"
+  else
+    missing="${missing} ${name}"
+  fi
+done
+if [ -n "${missing}" ]; then
+  echo "    not set:${missing}"
+  echo "    export them, then re-run this script. Without them the agent"
+  echo "    reports no token for those subscriptions."
+fi
+if [ -n "${env_block}" ]; then
+  env_block="    <key>EnvironmentVariables</key>
+    <dict>
+${env_block}    </dict>
+"
+fi
+
 echo "==> Writing ${PLIST}"
 mkdir -p "$HOME/Library/LaunchAgents" "${LOGS}"
+# Owner-only: the plist now carries a bearer token. umask alone is not enough -
+# it governs files that do not exist yet, and this one usually already does.
+umask 077
 cat > "${PLIST}" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -38,7 +71,7 @@ cat > "${PLIST}" <<PLIST
     <array>
         <string>${APP}/Contents/MacOS/quotabar</string>
     </array>
-    <key>RunAtLoad</key>
+${env_block}    <key>RunAtLoad</key>
     <true/>
     <!-- Restart on abnormal exit only. A bare <true/> would also restart the
          app after the user quits it, which makes the Quit button a lie. -->
@@ -54,6 +87,7 @@ cat > "${PLIST}" <<PLIST
 </dict>
 </plist>
 PLIST
+chmod 600 "${PLIST}"
 
 echo "==> Loading the LaunchAgent"
 # Unload first, then wait for launchd to actually drop the service: bootstrapping

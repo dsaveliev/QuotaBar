@@ -111,17 +111,14 @@ struct SubscriptionMenuView: View {
         }
     }
 
+    /// One line, not two. The provider's text already names the variable and
+    /// the step that makes it visible; a second line repeating the path added
+    /// nothing and, when the source was a file, printed an absolute path.
     private func errorBody(_ snapshot: SubscriptionSnapshot, code: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(errorText(snapshot, code: code))
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Color.red)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("Credentials: \(model.credentialLocation(for: snapshot.id))")
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        Text(errorText(snapshot, code: code))
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(Color.red)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func errorText(_ snapshot: SubscriptionSnapshot, code: String) -> String {

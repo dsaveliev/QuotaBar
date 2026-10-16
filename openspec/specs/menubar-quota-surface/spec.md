@@ -154,10 +154,9 @@ change.
 The system SHALL show a distinct label for each of the three data states — live,
 loading, and error — and SHALL keep the subscription's tag visible in every one
 of them. A missing credential SHALL be an error state like any other, with the
-dropdown rather than the label naming which credential is missing, whether it is
-a missing file or a missing entry, and what to do about it. Loading applies
-only before any figures exist; afterwards figures are shown and only the verdict
-is withheld.
+dropdown rather than the label naming which variable to set and what to do to
+make it visible to the running agent. Loading applies only before any figures
+exist; afterwards figures are shown and only the verdict is withheld.
 
 #### Scenario: before the first refresh completes
 
@@ -175,8 +174,8 @@ is withheld.
 
 - **WHEN** no credential resolves for a subscription
 - **THEN** its label shows the error state's question mark rather than a
-  percent, and the dropdown states which credential is missing and what to do
-  about it
+  percent, and the dropdown names the variable to set and the step that makes it
+  visible to the agent
 
 #### Scenario: the verdict is stated once
 
@@ -199,9 +198,11 @@ is withheld.
 
 #### Scenario: an absent credentials file is named as such
 
-- **WHEN** the credential file could not be read at all
-- **THEN** the dropdown says there is no OpenCode credentials file and where it
-  belongs, and does not suggest setting an environment variable
+- **WHEN** no credential resolves for a subscription
+- **THEN** the dropdown names the variable to set and says to re-run the
+  installer after exporting it, because an agent already registered does not
+  see a variable added to the shell afterwards, and no credential file is named
+  because none is read
 
 ### Requirement: Dropdown content
 

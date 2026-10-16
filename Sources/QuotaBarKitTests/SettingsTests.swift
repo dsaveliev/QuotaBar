@@ -124,13 +124,12 @@ enum SecretHygieneTests {
             let sink = SnapshotSink()
             let engine = QuotaEngine(
                 providers: [ZaiProvider(), MiniMaxProvider()],
-                credentials: CredentialStore(readFile: file.read, environment: { _ in nil }),
+                credentials: CredentialStore(environment: { name in name.hasSuffix("_TOKEN") ? "test-token" : nil }),
                 client: QuotaHTTPClient(timeoutMs: 200, transport: { _, _, _ in
                     TransportResponse(status: 401, text: "unauthorized")
                 }),
                 historyStore: HistoryStore(url: URL(fileURLWithPath: "/dev/null")),
                 snapshotStore: emptySnapshotStore(),
-                home: URL(fileURLWithPath: "/Users/tester"),
                 now: { clock.now }
             )
             await engine.setObserver { sink.record($0) }
@@ -152,8 +151,7 @@ enum SecretHygieneTests {
             let engine = QuotaEngine(
                 providers: [ZaiProvider()],
                 credentials: CredentialStore(
-                    readFile: MemoryFile(Data(#"{"zai": {"key": "\#(secret)"}}"#.utf8)).read,
-                    environment: { _ in nil }
+                    environment: { name in name == "ZAI_TOKEN" ? secret : nil }
                 ),
                 client: QuotaHTTPClient(timeoutMs: 200, transport: { _, _, _ in
                     TransportResponse(
@@ -167,7 +165,6 @@ enum SecretHygieneTests {
                     writeFile: historyFile.write
                 ),
                 snapshotStore: emptySnapshotStore(),
-                home: URL(fileURLWithPath: "/Users/tester"),
                 now: { clock.now }
             )
             await engine.refresh(providerId: "zai")

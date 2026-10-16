@@ -224,14 +224,8 @@ enum MiniMaxProviderTests {
             }
             Harness.expectEqual(ProviderRegistry.resolve(providerId: "zai")?.id, "zai", "zai")
         }),
-        ("both providers declare the auth keys and env names the spec pins", {
-            Harness.expectEqual(ZaiProvider().authKeys, ["zai-coding-plan", "zai"], "zai auth keys")
+        ("both providers declare the one environment name the spec pins", {
             Harness.expectEqual(ZaiProvider().tokenEnvNames, ["ZAI_TOKEN"], "zai env")
-            Harness.expectEqual(
-                MiniMaxProvider().authKeys,
-                ["minimax-coding-plan", "minimax-cn-coding-plan", "minimax"],
-                "minimax auth keys"
-            )
             Harness.expectEqual(MiniMaxProvider().tokenEnvNames, ["MINIMAX_TOKEN"], "minimax env")
 
             // One scheme, and it is predictable from the provider's name.
@@ -245,13 +239,10 @@ enum MiniMaxProviderTests {
             // A breaking change, pinned so it cannot be reverted by accident:
             // someone with MINIMAX_API_KEY exported gets no token at all.
             let store = CredentialStore(
-                readFile: { _ in throw CocoaError(.fileNoSuchFile) },
-                environment: {
-                    $0 == "MINIMAX_API_KEY" ? "retired" : nil
-                }
+                environment: { $0 == "MINIMAX_API_KEY" ? "retired" : nil }
             )
             Harness.expectEqual(
-                store.resolve(for: MiniMaxProvider(), home: URL(fileURLWithPath: "/Users/tester"))?.token,
+                store.resolve(for: MiniMaxProvider())?.token,
                 nil,
                 "the retired name resolves nothing"
             )
@@ -266,15 +257,6 @@ enum MiniMaxProviderTests {
                 mini.replacingOccurrences(of: "MINIMAX_TOKEN", with: "VARIABLE"),
                 "identical but for the variable"
             )
-        }),
-        ("an unreadable credentials file is not blamed on the environment", {
-            for provider in [ZaiProvider(), MiniMaxProvider()] as [any QuotaProvider] {
-                let text = QuotaErrorCode.displayText(
-                    for: QuotaErrorCode.noCredentialFile.rawValue, provider: provider
-                )
-                Harness.expect(text.contains("auth.json"), "\(provider.id) names the file")
-                Harness.expect(!text.contains("TOKEN"), "\(provider.id) does not suggest a variable")
-            }
         }),
     ]
 }

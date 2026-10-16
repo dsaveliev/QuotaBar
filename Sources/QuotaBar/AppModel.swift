@@ -52,7 +52,6 @@ final class AppModel: ObservableObject {
             client: QuotaHTTPClient(timeoutMs: 20_000),
             historyStore: HistoryStore(url: directory.appending(path: "history.json")),
             snapshotStore: SnapshotStore(url: directory.appending(path: "snapshot.json")),
-            home: home
         )
         self.snapshots = ProviderRegistry.all.map {
             SubscriptionSnapshot.placeholder(provider: $0)
@@ -121,15 +120,6 @@ final class AppModel: ObservableObject {
     /// resolves for the plugin.
     func provider(for id: String) -> (any QuotaProvider)? {
         ProviderRegistry.all.first { $0.id == id }
-    }
-
-    /// Where a token for this provider would be read from — shown on the
-    /// error path so the fix is actionable. The token itself never appears.
-    func credentialLocation(for id: String) -> String {
-        let file = CredentialStore.defaultAuthFileURL(home: home).path
-        let envs = provider(for: id)?.tokenEnvNames ?? []
-        let env = envs.isEmpty ? "" : ", or env \(envs.joined(separator: " / "))"
-        return "\(file)\(env)"
     }
 
     // MARK: - Intents

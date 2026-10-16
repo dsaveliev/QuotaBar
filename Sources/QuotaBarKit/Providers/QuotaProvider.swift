@@ -12,9 +12,7 @@ public protocol QuotaProvider: Sendable {
     var tag: String { get }
     /// Human-readable name for the dropdown header.
     var displayName: String { get }
-    /// auth.json keys to look the bearer token up under, in precedence order.
-    var authKeys: [String] { get }
-    /// Environment variable names to fall back to, in precedence order.
+    /// The environment variable holding this subscription's bearer token.
     var tokenEnvNames: [String] { get }
     /// Endpoint hosts probed in declaration order; the first successful one is
     /// remembered for the lifetime of the process.
@@ -38,7 +36,6 @@ public enum QuotaErrorCode: String, Sendable, Equatable {
     case badJSON = "bad-json"
     case timeout
     case empty
-    case noCredentialFile = "no-credential-file"
 
     public static func http(_ status: Int) -> String { "http-\(status)" }
 

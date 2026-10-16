@@ -19,9 +19,16 @@ things worth stating plainly rather than leaving to be inferred:
   subscription's own quota endpoint, over https, as a bearer token. It is never
   written to disk, never logged, and never rendered, including in error text,
   which names *where* to put a credential rather than echoing one.
-- **It reads `~/.local/share/opencode/auth.json` read-only** and never modifies
-  it. This is a deliberate dependency rather than a convenience: there is no
-  login flow to get wrong, and no second copy of a credential to leak.
+- **A token, once supplied, lives in the login agent's plist.**
+  `~/Library/LaunchAgents/dev.dmitrii.quotabar.plist` carries `ZAI_TOKEN` and
+  `MINIMAX_TOKEN` in plain text, readable by the user who owns it. That is
+  launchd's own mechanism for handing variables to an agent, and it is the only
+  place the token is persisted: the app itself keeps it in its process
+  environment and writes nothing. `uninstall.sh` removes the plist.
+
+The token was previously never written anywhere. It is now written by the
+installer, which is a deliberate trade for working after a login without
+remembering a command.
 
 The full inventory is in the README's Privacy section.
 
@@ -41,6 +48,8 @@ The full inventory is in the README's Privacy section.
   user can read, to do what you installed the app for, is not an escalation.
   Hardening against local malware is out of scope for a menu bar agent.
 - **The app writing its own sample history** into the directories named above.
+- **The installer writing a token into the plist.** That is the documented
+  mechanism, mode 600, and the reason a login agent can read a variable at all.
 
 ## Supported versions
 

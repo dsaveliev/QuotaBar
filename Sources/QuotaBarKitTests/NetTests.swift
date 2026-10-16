@@ -2,82 +2,64 @@ import Foundation
 import QuotaBarKit
 
 enum CredentialTests {
-    static let home = URL(fileURLWithPath: "/Users/tester")
-
-    private static func makeStore(
-        authJSON: String?,
-        env: [String: String] = [:]
-    ) -> CredentialStore {
-        let file = MemoryFile(authJSON.map { Data($0.utf8) })
-        return CredentialStore(
-            readFile: file.read,
-            environment: { env[$0] }
-        )
+    private static func makeStore(env: [String: String]) -> CredentialStore {
+        CredentialStore(environment: { env[$0] })
     }
 
     static let cases: [TestCase] = [
-        ("the first auth.json key holding a non-empty value wins", {
-            let store = makeStore(authJSON: #"{"zai-coding-plan": {"key": "first"}, "zai": {"key": "second"}}"#)
+        ("each provider reads only its own variable", {
+            let store = makeStore(env: [
+                "ZAI_TOKEN": "zai-value", "MINIMAX_TOKEN": "minimax-value",
+            ])
+            Harness.expectEqual(store.resolve(for: ZaiProvider())?.token, "zai-value", "zai")
             Harness.expectEqual(
-                store.resolve(for: ZaiProvider(), home: home)?.token, "first", "zai preference order"
+                store.resolve(for: MiniMaxProvider())?.token, "minimax-value", "minimax"
             )
             Harness.expectEqual(
-                store.resolve(for: MiniMaxProvider(), home: home)?.token, nil, "minimax has no entry here"
+                store.resolve(for: ZaiProvider())?.source, .environment("ZAI_TOKEN"), "source"
             )
         }),
-        ("MiniMax falls through its keys in order", {
-            let store = makeStore(authJSON: #"{"minimax": {"key": "third"}}"#)
+        ("a missing variable resolves nothing", {
+            let store = makeStore(env: ["ZAI_TOKEN": "zai-value"])
             Harness.expectEqual(
-                store.resolve(for: MiniMaxProvider(), home: home)?.token, "third", "last key"
+                store.resolve(for: MiniMaxProvider())?.token, nil, "no minimax variable here"
             )
         }),
-        ("a blank key falls through to the next entry", {
-            let store = makeStore(authJSON: #"{"zai-coding-plan": {"key": "  "}, "zai": {"key": "used"}}"#)
-            Harness.expectEqual(store.resolve(for: ZaiProvider(), home: home)?.token, "used", "skipped blank")
-        }),
-        ("the environment is consulted only when the file yields nothing", {
-            let withFile = makeStore(
-                authJSON: #"{"zai": {"key": "from-file"}}"#,
-                env: ["ZAI_TOKEN": "from-env"]
-            )
+        ("a whitespace-only variable is not a credential", {
+            let store = makeStore(env: ["ZAI_TOKEN": "   \n  "])
             Harness.expectEqual(
-                withFile.resolve(for: ZaiProvider(), home: home)?.source, .authFile, "file wins"
-            )
-
-            let withoutFile = makeStore(authJSON: #"{"other": {"key": "x"}}"#, env: ["ZAI_TOKEN": "from-env"])
-            Harness.expectEqual(
-                withoutFile.resolve(for: ZaiProvider(), home: home)?.token, "from-env", "env fallback"
-            )
-            Harness.expectEqual(
-                withoutFile.resolve(for: ZaiProvider(), home: home)?.source, .environment("ZAI_TOKEN"), "env source"
+                store.resolve(for: ZaiProvider())?.token, nil, "blank resolves nothing"
             )
         }),
-        ("a single environment name is read, and it is the current one", {
-            let store = makeStore(authJSON: nil, env: ["ZAI_TOKEN": "from-env"])
+        ("the retired variable names are not read", {
+            let store = makeStore(env: [
+                "Z_AI_TOKEN": "old", "MINIMAX_API_KEY": "old",
+            ])
+            Harness.expectEqual(store.resolve(for: ZaiProvider())?.token, nil, "Z_AI_TOKEN ignored")
             Harness.expectEqual(
-                store.resolve(for: ZaiProvider(), home: home)?.token, "from-env", "current name"
+                store.resolve(for: MiniMaxProvider())?.token, nil, "MINIMAX_API_KEY ignored"
             )
-            Harness.expectEqual(ZaiProvider().tokenEnvNames, ["ZAI_TOKEN"], "exactly one name")
         }),
-        ("a malformed credential file falls through to the environment silently", {
-            let store = makeStore(authJSON: "{not json", env: ["ZAI_TOKEN": "from-env"])
-            Harness.expectEqual(store.resolve(for: ZaiProvider(), home: home)?.token, "from-env", "env fallback")
-            Harness.expect(!store.isAuthFileUnreadable(home: home), "a present malformed file is not 'unreadable'")
+        ("no credential file is consulted at all", {
+            // The store no longer takes a file reader, so it cannot open one.
+            // The provider is the only thing that says where a token may come
+            // from, and it names one variable.
+            Harness.expectEqual(ZaiProvider().tokenEnvNames, ["ZAI_TOKEN"], "zai")
+            Harness.expectEqual(MiniMaxProvider().tokenEnvNames, ["MINIMAX_TOKEN"], "minimax")
         }),
-        ("an absent credential file is reported as unreadable and resolves nothing", {
-            let store = makeStore(authJSON: nil, env: [:])
-            Harness.expectEqual(store.resolve(for: ZaiProvider(), home: home)?.token, nil, "no token")
-            Harness.expect(store.isAuthFileUnreadable(home: home), "absent file is unreadable")
-        }),
-        ("an entry without a string key contributes nothing", {
-            let store = makeStore(authJSON: #"{"zai": {"key": 42}, "zai-coding-plan": "not-an-object"}"#)
-            Harness.expectEqual(store.resolve(for: ZaiProvider(), home: home)?.token, nil, "no usable entry")
-        }),
-        ("the credential file lives at the OpenCode path", {
+        ("the missing-token messages are parallel", {
+            let zai = QuotaErrorCode.displayText(
+                for: QuotaErrorCode.noToken.rawValue, provider: ZaiProvider()
+            )
+            let mini = QuotaErrorCode.displayText(
+                for: QuotaErrorCode.noToken.rawValue, provider: MiniMaxProvider()
+            )
+            Harness.expect(zai.contains("ZAI_TOKEN") && zai.contains("install.sh"), "zai names the step")
+            Harness.expect(mini.contains("MINIMAX_TOKEN") && mini.contains("install.sh"), "minimax too")
             Harness.expectEqual(
-                CredentialStore.defaultAuthFileURL(home: home).path,
-                "/Users/tester/.local/share/opencode/auth.json",
-                "auth file path"
+                zai.replacingOccurrences(of: "ZAI_TOKEN", with: "VARIABLE"),
+                mini.replacingOccurrences(of: "MINIMAX_TOKEN", with: "VARIABLE"),
+                "identical but for the variable"
             )
         }),
     ]

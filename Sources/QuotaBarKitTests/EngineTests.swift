@@ -245,17 +245,13 @@ enum EngineFixture {
     {"zai-coding-plan": {"key": "zai-token"}, "minimax-coding-plan": {"key": "mmx-token"}}
     """
 
-    private static let unreadableRead: @Sendable (URL) throws -> Data = { _ in
-        throw CocoaError(.fileNoSuchFile)
-    }
-
     static func make(
         providers: [any QuotaProvider] = [ZaiProvider(), MiniMaxProvider()],
         authJSON: String = EngineFixture.defaultAuthJSON,
         start: EpochMillis = 1_700_000_000_000,
         respond: @escaping @Sendable (URL, Int) -> QuotaFetchResult = flatWindow,
         restoredJSON: String = "",
-        authReadable: Bool = true
+        withToken: Bool = true
     ) async -> Fixture {
         let clock = FakeClock(start)
         let file = MemoryFile(Data(authJSON.utf8))
@@ -263,11 +259,12 @@ enum EngineFixture {
         let calls = CallRecorder()
         let sink = SnapshotSink()
 
-        // `authReadable: false` is the case the app used to confuse with "the
-        // file has no entry for me": a credential file that cannot be read.
+        // The environment is the only credential source now, so the fixture
+        // hands every provider a token from its own variable.
         let credentials = CredentialStore(
-            readFile: authReadable ? file.read : unreadableRead,
-            environment: { _ in nil }
+            environment: { name in
+                withToken && name.hasSuffix("_TOKEN") ? "test-token" : nil
+            }
         )
         let client = QuotaHTTPClient(timeoutMs: 1_000, transport: { url, _, _ in
             calls.record(url)
@@ -296,7 +293,6 @@ enum EngineFixture {
                 readFile: MemoryFile(Data(restoredJSON.utf8)).read,
                 writeFile: { _, _ in }
             ),
-            home: URL(fileURLWithPath: "/Users/tester"),
             now: { clock.now }
         )
         await observe(sink, engine)
@@ -411,7 +407,7 @@ enum QuotaEngineTests {
         }),
 
         ("a missing credential reports no-token and issues no request", {
-            let fixture = await EngineFixture.make(authJSON: "{}")
+            let fixture = await EngineFixture.make(withToken: false)
             await fixture.engine.refreshAll()
             for snapshot in fixture.published.latest {
                 guard case .error(let code) = snapshot.state else {
@@ -497,8 +493,7 @@ enum QuotaEngineTests {
             let engine = QuotaEngine(
                 providers: [ZaiProvider()],
                 credentials: CredentialStore(
-                    readFile: MemoryFile(Data(#"{"zai": {"key": "t"}}"#.utf8)).read,
-                    environment: { _ in nil }
+                    environment: { name in name.hasSuffix("_TOKEN") ? "test-token" : nil },
                 ),
                 client: QuotaHTTPClient(timeoutMs: 1_000, transport: { _, _, _ in
                     box.increment()
@@ -510,7 +505,6 @@ enum QuotaEngineTests {
                 }),
                 historyStore: HistoryStore(url: URL(fileURLWithPath: "/dev/null")),
                 snapshotStore: emptySnapshotStore(),
-                home: URL(fileURLWithPath: "/Users/tester"),
                 now: { clock.now }
             )
             await fireConcurrently(engine, providerId: "zai", count: 5)
@@ -546,15 +540,13 @@ enum QuotaEngineTests {
             let engine = QuotaEngine(
                 providers: [ZaiProvider()],
                 credentials: CredentialStore(
-                    readFile: MemoryFile(Data(#"{"zai": {"key": "t"}}"#.utf8)).read,
-                    environment: { _ in nil }
+                    environment: { name in name.hasSuffix("_TOKEN") ? "test-token" : nil },
                 ),
                 client: QuotaHTTPClient(timeoutMs: 1_000, transport: { _, _, _ in
                     TransportResponse(status: 500, text: "{}")
                 }),
                 historyStore: HistoryStore(url: URL(fileURLWithPath: "/dev/null")),
                 snapshotStore: emptySnapshotStore(),
-                home: URL(fileURLWithPath: "/Users/tester"),
                 now: { clock.now }
             )
             await engine.apply(settings: Settings(intervalMs: 10_000))
@@ -624,8 +616,7 @@ enum QuotaEngineTests {
             let reloaded = QuotaEngine(
                 providers: [ZaiProvider()],
                 credentials: CredentialStore(
-                    readFile: MemoryFile(Data(#"{"zai":{"key":"t"}}"#.utf8)).read,
-                    environment: { _ in nil }
+                    environment: { name in name.hasSuffix("_TOKEN") ? "test-token" : nil },
                 ),
                 client: QuotaHTTPClient(timeoutMs: 1_000, transport: { _, _, _ in
                     TransportResponse(
@@ -639,7 +630,6 @@ enum QuotaEngineTests {
                     writeFile: first.historyFile.write
                 ),
                 snapshotStore: emptySnapshotStore(),
-                home: URL(fileURLWithPath: "/Users/tester"),
                 now: { clock.now }
             )
             // Past the five-hour window's evidence threshold, so the restored
@@ -666,26 +656,6 @@ enum QuotaEngineTests {
             let fixture = await EngineFixture.make(providers: [ZaiProvider()])
             await fixture.engine.refresh(providerId: "zai")
             Harness.expectEqual(fixture.published.snapshot(id: "zai")?.state, .live, "polling continues")
-        }),
-
-        ("an absent credentials file is not the same as an absent entry", {
-            // The bug this pins: both used to read "no token", so a user with no
-            // credential file was told to set an environment variable.
-            let absent = await EngineFixture.make(authJSON: "", authReadable: false)
-            await absent.engine.refresh(providerId: "zai")
-            Harness.expectEqual(
-                await code(of: absent, id: "zai"), "no-credential-file",
-                "the file could not be read at all"
-            )
-
-            let presentButEmpty = await EngineFixture.make(
-                authJSON: #"{"unrelated": {"key": "x"}}"#
-            )
-            await presentButEmpty.engine.refresh(providerId: "zai")
-            Harness.expectEqual(
-                await code(of: presentButEmpty, id: "zai"), "no-token",
-                "the file was read and held nothing for zai"
-            )
         }),
 
         ("a window with nothing to project is not measuring, it is absent", {
@@ -823,7 +793,8 @@ enum QuotaEngineTests {
 /// the error state.
 @MainActor
 private func code(of fixture: EngineFixture.Fixture, id: String) -> String? {
-    guard case .error(let code) = fixture.published.latest.first { $0.id == id }?.state else {
+    guard let match = fixture.published.latest.first(where: { $0.id == id }),
+          case .error(let code) = match.state else {
         return nil
     }
     return code
