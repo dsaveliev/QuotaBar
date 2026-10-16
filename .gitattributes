@@ -3,6 +3,7 @@
 
 # Binary assets must never be line-ending translated.
 *.png binary
+*.webp binary
 *.jpg binary
 *.gif binary
 *.icns binary

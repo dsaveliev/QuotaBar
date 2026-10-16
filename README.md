@@ -10,7 +10,7 @@ coding-plan allowance is left, and — the part that matters — **whether the
 current pace outlasts the window**.
 
 ![The panel, with a five-hour window past its evidence threshold and a
-weekly window still gathering it](docs/panel.png)
+weekly window still gathering it](docs/panel.webp)
 
 *Real panel, real usage, with permission. The five-hour window has enough
 history to be acted on; the weekly one is still gathering evidence, and says
