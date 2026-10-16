@@ -5,12 +5,11 @@ coding-plan allowance is left, and — the part that matters — **whether the
 current pace outlasts the window**.
 
 ```
- 1%  52% zai  ✓
+zai✓
 ```
 
-One item, whichever provider you last selected: the figures first, since reading
-them is what the menu bar is for, with the tag between them and the verdict
-qualifying them at the end. Both subscriptions are polled at
+One item, whichever provider you last selected: the subscription and its state,
+nothing else. Six characters that never change width. Both subscriptions are polled at
 once and independently of anything else on the machine: there is no editor,
 terminal agent, or OpenCode session involved. The app runs at login, reads your
 credentials from the file OpenCode already writes, and keeps a single status
@@ -41,6 +40,12 @@ the muted line beneath it, never by colouring the number.
 Each window gets one verdict, and the glyph and the bar colour follow the
 verdict — not the raw percentage.
 
+Hovering the item reads out everything the label leaves out:
+
+```
+MiniMax — 5h 58%, 7d 47% · ! close to the reset · updated 3m ago
+```
+
 | Glyph | Verdict | Meaning |
 | --- | --- | --- |
 | `✓` | ok | the projection comfortably outlasts the reset |
@@ -52,10 +57,10 @@ verdict — not the raw percentage.
 The marker on each bar is *now*: fill to the left of it is quota consumed so
 far, and the gap to the right edge is how much of the window's time is left.
 
-The label is drawn in a font where every character is the same width, and each
-part of it is padded to the width its widest value needs, so the item does not
-resize as figures change. Reordering the same characters cannot change the sum,
-so the label is as many characters as it has always been.
+The label is drawn in a font where every character is the same width, so the item
+cannot resize as figures change — it carries none. It moves by one character when
+the verdict changes between a one-character glyph and a two-character one, and
+that is the only time it moves. The figures are not in it: hover for them.
 
 ## Where the runway comes from
 

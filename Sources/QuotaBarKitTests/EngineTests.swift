@@ -338,17 +338,15 @@ enum QuotaEngineTests {
             }
         }),
 
-        ("the item's width does not depend on its figures", {
-            // The whole point: crossing a digit boundary, or the verdict moving
-            // between one and two characters, must not change the length.
-            func label(percents: [Double?], verdict: Verdict) -> String {
+        ("the label is the subscription and its state, and nothing else", {
+            func label(windowCount: Int, percents: [Double?], verdict: Verdict) -> String {
                 SubscriptionSnapshot(
                     id: "zai", tag: "zai", displayName: "Z.ai", state: .live,
-                    windows: percents.enumerated().map { index, percent in
+                    windows: (0..<windowCount).map { index in
                         WindowSnapshot(
                             label: index == 0 ? "5h" : "7d",
-                            percent: percent,
-                            usage: percent,
+                            percent: percents[index],
+                            usage: percents[index],
                             limit: 100,
                             verdict: verdict,
                             resetInMs: 3_600_000,
@@ -364,37 +362,42 @@ enum QuotaEngineTests {
                 ).menuBarLabel()
             }
 
+            // A guard, not a measurement: with no figures in the label there is
+            // nothing left to vary. It earns its place by failing if a field is
+            // ever added back without reserving its width.
             for verdict in [Verdict.ok, .tight, .short, .blocked, .unknown] {
-                for percents in [[9.0, 9.0], [59.0, 47.0], [100.0, 100.0], [5.0, 100.0]] {
-                    let text = label(percents: percents, verdict: verdict)
+                for percents in [[9.0, 9.0], [100.0, 100.0], [nil, nil], [1.0, 100.0]] {
+                    let twoWindows = label(windowCount: 2, percents: percents, verdict: verdict)
                     Harness.expectEqual(
-                        text.count, 16, "\(percents) \(verdict) is \(text.debugDescription)"
+                        twoWindows.count, 3 + verdict.glyph.count,
+                        "tag and glyph, nothing between: \(twoWindows.debugDescription)"
                     )
-                    Harness.expect(!text.hasSuffix(" "), "never ends on padding: \(text.debugDescription)")
+                    Harness.expect(!twoWindows.contains(" "), "no separator, no padding")
+                    Harness.expectEqual(
+                        label(windowCount: 1, percents: [percents[0]], verdict: verdict),
+                        twoWindows, "the number of windows does not reach the label"
+                    )
                 }
-                // An unknown percent occupies its field too.
-                Harness.expectEqual(
-                    label(percents: [nil, 50.0], verdict: verdict).count, 16, "nil percent"
-                )
             }
-
-            // A single-window subscription is its own fixed width.
-            Harness.expectEqual(
-                label(percents: [7.0], verdict: .ok).count,
-                label(percents: [100.0], verdict: .short).count,
-                "one window has one width of its own"
-            )
-            Harness.expectEqual(label(percents: [7.0], verdict: .ok), "  7% zai  ✓", "single window, figures first")
+            Harness.expectEqual(label(windowCount: 1, percents: [7.0], verdict: .ok), "zai✓", "ok")
+            Harness.expectEqual(label(windowCount: 2, percents: [7.0, 8.0], verdict: .short), "zai!!", "short")
         }),
 
-        ("the label runs the figures, then the tag, then the verdict", {
+        ("the label carries no figure, and the tooltip carries them all", {
             let fixture = await EngineFixture.make(providers: [ZaiProvider()], respond: twoWindows)
             await fixture.engine.refresh(providerId: "zai")
-            Harness.expectEqual(
-                fixture.published.snapshot(id: "zai")?.menuBarLabel(),
-                " 62%  41% zai  ?",
-                "both windows shown; ? because there is no verdict history yet"
-            )
+            guard let snapshot = fixture.published.snapshot(id: "zai") else {
+                Harness.expect(false, "a snapshot arrived")
+                return
+            }
+            Harness.expectEqual(snapshot.menuBarLabel(), "zai?", "tag and verdict, no percent")
+            Harness.expect(!snapshot.menuBarLabel().contains("%"), "not a single figure in the label")
+
+            // The figures the label gave up are still there on hover.
+            let tooltip = MenuBarItems.explanation(for: .subscription("zai"), snapshot: snapshot)
+            Harness.expect(tooltip.contains("62%"), "the five-hour window's percent is in the tooltip")
+            Harness.expect(tooltip.contains("41%"), "and the weekly one")
+            Harness.expect(tooltip.contains("Z.ai") || tooltip.contains("zai"), "naming the subscription")
         }),
 
         ("a missing credential reports no-token and issues no request", {
@@ -707,7 +710,7 @@ enum QuotaEngineTests {
             Harness.expectEqual(before?.restored, true, "and the snapshot says why")
             Harness.expectEqual(before?.stale, false, "no refresh was due yet, so not stale")
             Harness.expectEqual(
-                before?.menuBarLabel(), " 20% zai  ?", "numbers now, glyph once confirmed"
+                before?.menuBarLabel(), "zai?", "shown at once, glyph withheld until confirmed"
             )
             Harness.expectEqual(before?.updatedAt, 1_700_000_000_000, "aged from when it was fetched")
 

@@ -103,17 +103,7 @@ enum PercentFormatTests {
             Harness.expectEqual(PercentFormat.text(999), "999%", "at the cap")
             Harness.expectEqual(PercentFormat.text(1_500), "999%", "above the cap")
             Harness.expect(PercentFormat.text(1_500).count <= 4, "display text must stay 4 characters wide")
-
-            // The menu bar pads; the panel does not.
-            for value in [Double?(nil), -5.4, 0, 0.4, 62.6, 100, 999, 1_500] {
-                Harness.expectEqual(
-                    PercentFormat.fixedWidth(value).count, 4,
-                    "menu bar field is always \(value) in four characters"
-                )
-            }
-            Harness.expectEqual(PercentFormat.fixedWidth(62), " 62%", "right-aligned")
-            Harness.expectEqual(PercentFormat.fixedWidth(100), "100%", "the widest value needs no padding")
-            Harness.expectEqual(PercentFormat.text(62), "62%", "the panel's text is untouched")
+            Harness.expectEqual(PercentFormat.text(62), "62%", "the panel figures are not padded")
         }),
     ]
 }

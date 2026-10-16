@@ -128,23 +128,23 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
     /// Every field is padded to the width its widest value needs, so the item's
     /// width follows the number of windows and not the figures in them:
     ///
-    ///     100% 100% mmx !!
-    ///       1%  52% zai  ✓
+    ///     zai✓
+    ///     mmx!!
     ///
-    /// Both are sixteen characters. The figures lead, because reading them is
-    /// what the menu bar is for; the verdict qualifies them and goes last. The
-    /// tag sits between the two so it reads as the separator it ends up being.
+    /// Six characters: the subscription and its state. Nothing else.
     ///
-    /// Padding goes on the left of every field, including the glyph, so the
-    /// glyph's right edge does not move between a one-character and a
-    /// two-character verdict, and because a trailing space in a status item
-    /// title is something the layout may trim - a trimmed last field is
-    /// exactly the jitter this is here to remove.
+    /// This used to carry a percent per window, and rearranging those figures
+    /// took four changes before the obvious answer became clear - the menu bar
+    /// is a status light, not a dashboard. The figures were never only here:
+    /// the item's tooltip names every window with its percent and the panel
+    /// shows them against their bars, so the label was duplicating them.
     ///
-    /// Windows are separated by a space and no other character. The padding
-    /// already separates them at one and two digits; the space is what keeps
-    /// `100% 100%` from running together at three, and it costs the same one
-    /// character the dot did.
+    /// No separator and no padding between the tag and the glyph: they read as
+    /// one word, which is what they are - "MiniMax is tight", not "MiniMax,
+    /// tight". The cost is that a one-character verdict is one character
+    /// narrower than a two-character one, so the item moves by that much when
+    /// the verdict changes. That is a rare event and one character, against a
+    /// menu bar that used to move on every figure that gained a digit.
     public func menuBarLabel() -> String {
         switch state {
         case .loading:
@@ -152,32 +152,18 @@ public struct SubscriptionSnapshot: Identifiable, Sendable, Equatable {
         case .error:
             return "\(tag) ?"
         case .live:
-            // `map`, not `compactMap`: a window whose percent is unknown still
-            // occupies its field. Dropping it would move every figure after it
-            // and change the item's width, which is the jitter this label is
-            // built to avoid.
-            let percents = windows.map { PercentFormat.fixedWidth($0.percent) }
-            guard !percents.isEmpty else { return "\(tag) …" }
-            return "\(percents.joined(separator: " ")) \(Self.tagField(tag)) \(Self.glyphField(verdict.glyph))"
+            // No figures: the label says which subscription this is and whether
+            // it needs attention, and the tooltip and panel carry the numbers.
+            guard !windows.isEmpty else { return "\(tag) …" }
+            return "\(tag)\(verdict.glyph)"
         }
     }
 
-    /// Widths of the label's fixed fields, each set by its widest value.
-    private static let tagWidth = 3
     private static let glyphWidth = 2
 
-    private static func tagField(_ tag: String) -> String {
-        guard tag.count < tagWidth else { return tag }
-        return tag + String(repeating: " ", count: tagWidth - tag.count)
-    }
-
-    /// Left-padded, so the glyph's right edge sits at the same x whether the
-    /// verdict is one character or two, and so the label starts with its
-    /// reading rather than with a space.
-    private static func glyphField(_ glyph: String) -> String {
-        guard glyph.count < glyphWidth else { return glyph }
-        return String(repeating: " ", count: glyphWidth - glyph.count) + glyph
-    }
+    /// The glyph's widest form, so a change to the vocabulary is caught rather
+    /// than discovered on screen.
+    public static var widestGlyph: Int { glyphWidth }
 
     public static func placeholder(
         provider: any QuotaProvider
