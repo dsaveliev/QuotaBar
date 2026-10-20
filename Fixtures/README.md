@@ -4,20 +4,30 @@ Payload shapes for the two providers' quota endpoints, used by
 `ZaiProviderTests` and `MiniMaxProviderTests` to check the parsers against a
 realistic response rather than one written to fit the code under test.
 
-They were **captured from the live endpoints**, so the shape is the server's own
-— including the fields the parser deliberately ignores.
+The field set, and the relationships between the fields, were **captured from
+the live endpoints**, so the shape is the server's own — including the fields
+the parser deliberately ignores. The values were not.
 
 What was replaced, and what was not:
 
-- **Replaced with round numbers:** every consumption figure, the limit, the
-  percent, and the plan tier. No real quota figures are in this repository.
-- **Kept as captured:** the absolute reset timestamps. They are load-bearing —
-  the parser carries them through unchanged and a test pins the exact values —
-  and rounding them to a tidy number would make the fixture less faithful
-  without making it safer. They disclose a window boundary, nothing more.
+- **Replaced with round numbers:** every value — the consumption figures, the
+  limit, the percent, the plan tier, and the reset timestamps alike. No real
+  quota figures and no real window boundaries are in this repository.
+- **Kept as captured:** the *shape*, which is to say the relationships between
+  the values. The weekly window starts before the five-hour window does, spans
+  seven days of its own, and counts down to its own end; the Z.ai limit is the
+  sum of its consumed and remaining counts. Rounding the numbers keeps those
+  relationships. Flattening them would teach a parser something the endpoint
+  never says — a weekly window that is really a copy of the five-hour one, a
+  remaining time that is really the window's full length — and the next person
+  to check a parser against this fixture would be checking it against a
+  fiction.
 
-If you re-capture a live payload, replace the consumption figures before
-committing them. These files are published with the source.
+If you re-capture a live payload, replace the values before committing them —
+these files are published with the source — and keep the shape holding. The
+properties below are the ones a test depends on; a capture that breaks one of
+them fails the suite, which is where the shape would otherwise drift again
+unnoticed.
 
 What each fixture keeps, because a test depends on it:
 
@@ -29,6 +39,6 @@ What each fixture keeps, because a test depends on it:
 | Z.ai: `currentValue + remaining` is the limit | the rule the parser applies |
 | MiniMax: percent-space remaining, not counts | MiniMax reports percentages, not quantities |
 | MiniMax: `base_resp.status_code` 0 | the envelope-success rule the region fallback turns on |
-
-If you re-capture a live payload, replace the values before committing them —
-these files are published with the source.
+| MiniMax: the weekly window starts before the five-hour window | the two windows are independent, so the `7d` row's reset is not the `5h` row's |
+| MiniMax: the weekly window spans seven days | its own length, not a copy of the five-hour window's |
+| MiniMax: the weekly remaining time is the distance from the capture instant to the weekly window's end | a countdown, not the window's full length — and the check that proves `weekly_end_time` is the true weekly boundary |

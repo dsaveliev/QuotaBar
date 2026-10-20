@@ -164,7 +164,126 @@ enum MiniMaxProviderTests {
             Harness.expectEqual(rows[0].windowMs, fiveHoursMs, "5h window")
             Harness.expectEqual(rows[1].windowMs, weekMs, "7d window")
         }),
-        ("an inactive window is omitted while the active one still reports", {
+        ("the captured payload's weekly window is its own window", {
+            // The endpoint's two windows are independent: the weekly one has its
+            // own start, its own end, and counts down to that end. A fixture
+            // that flattened them into a copy of the five-hour window would let
+            // a parser reading the wrong field pass, so the shape is checked
+            // here and not only the figures.
+            let payload = try Fixtures.json("minimax-token-plan-remains.json")
+            let entries = payload["model_remains"] as? [[String: Any]] ?? []
+            guard let entry = entries.first else {
+                Harness.expect(false, "the fixture must carry a plan entry")
+                return
+            }
+            func stamp(_ key: String) -> Double? {
+                guard let number = entry[key] as? NSNumber else { return nil }
+                let value = number.doubleValue
+                return value.isFinite ? value : nil
+            }
+            guard
+                let start = stamp("start_time"),
+                let end = stamp("end_time"),
+                let remains = stamp("remains_time"),
+                let weeklyStart = stamp("weekly_start_time"),
+                let weeklyEnd = stamp("weekly_end_time"),
+                let weeklyRemains = stamp("weekly_remains_time")
+            else {
+                Harness.expect(false, "the fixture must carry both windows' timestamps")
+                return
+            }
+
+            // The weekly window spans seven days of its own, and began before
+            // the current five-hour window did.
+            Harness.expectEqual(weeklyEnd - weeklyStart, weekMs, "the weekly window spans seven days")
+            Harness.expect(weeklyStart < start, "the weekly window began before the five-hour window")
+
+            // Its remaining time counts down to its own end, from the capture
+            // instant the interval window implies.
+            let capture = end - remains
+            Harness.expectEqual(weeklyRemains, weeklyEnd - capture, "the weekly remaining time counts down to its own end")
+            Harness.expect(
+                weeklyRemains < weeklyEnd - weeklyStart,
+                "the weekly remaining time is a countdown, not the full window"
+            )
+
+            // Each row takes its own window's end, so the two never agree.
+            let rows = MiniMaxProvider().parse(payload)
+            Harness.expectEqual(
+                rows.first { $0.label == "5h" }?.resetAt, end,
+                "the 5h row resets at the interval window's end"
+            )
+            Harness.expectEqual(
+                rows.first { $0.label == "7d" }?.resetAt, weeklyEnd,
+                "the 7d row resets at the weekly window's end"
+            )
+            Harness.expect(rows[0].resetAt != rows[1].resetAt, "the two rows must not share a reset")
+        }),
+        ("an exhausted window is reported at 100% while the other still reports", {
+            let payload: [String: Any] = [
+                "model_remains": [[
+                    "end_time": 1_000.0,
+                    "weekly_end_time": 2_000.0,
+                    "current_interval_status": 1,
+                    "current_interval_remaining_percent": 50.0,
+                    "current_weekly_status": 2,
+                    "current_weekly_remaining_percent": 0.0,
+                ]],
+            ]
+            let rows = MiniMaxProvider().parse(payload)
+            Harness.expectEqual(rows.map(\.label), ["5h", "7d"], "both windows")
+            Harness.expectEqual(rows.first { $0.label == "5h" }?.percent, 50, "5h percent")
+            Harness.expectEqual(rows.first { $0.label == "7d" }?.percent, 100, "7d percent")
+        }),
+        ("an exhausted status outranks a remaining percent above zero", {
+            // The endpoint's own status is the authority on whether a window is
+            // spent; a percentage left over from before it ran out must not
+            // render it as intact.
+            let payload: [String: Any] = [
+                "model_remains": [[
+                    "end_time": 1_000.0,
+                    "weekly_end_time": 2_000.0,
+                    "current_interval_status": 1,
+                    "current_interval_remaining_percent": 84.0,
+                    "current_weekly_status": 2,
+                    "current_weekly_remaining_percent": 60.0,
+                ]],
+            ]
+            let rows = MiniMaxProvider().parse(payload)
+            Harness.expectEqual(rows.first { $0.label == "7d" }?.percent, 100, "7d percent")
+        }),
+        ("an exhausted window is reported even when its remaining percent is absent", {
+            let payload: [String: Any] = [
+                "model_remains": [[
+                    "end_time": 1_000.0,
+                    "weekly_end_time": 2_000.0,
+                    "current_interval_status": 1,
+                    "current_interval_remaining_percent": 50.0,
+                    "current_weekly_status": 2,
+                ]],
+            ]
+            let rows = MiniMaxProvider().parse(payload)
+            Harness.expectEqual(rows.map(\.label), ["5h", "7d"], "both windows")
+            Harness.expectEqual(rows.first { $0.label == "7d" }?.percent, 100, "7d percent")
+        }),
+        ("an unlimited window is omitted while the other still reports", {
+            let payload: [String: Any] = [
+                "model_remains": [[
+                    "end_time": 1_000.0,
+                    "weekly_end_time": 2_000.0,
+                    "current_interval_status": 1,
+                    "current_interval_remaining_percent": 50.0,
+                    "current_weekly_status": 3,
+                    "current_weekly_remaining_percent": 100.0,
+                ]],
+            ]
+            let rows = MiniMaxProvider().parse(payload)
+            Harness.expectEqual(rows.map(\.label), ["5h"], "only the limited window")
+        }),
+        ("a status the endpoint does not define is read as limited", {
+            // A window that vanishes takes its quota off the screen with no way
+            // to tell it from a healthy one, so an unrecognised status reads
+            // from the percentage rather than dropping the window.
             let payload: [String: Any] = [
                 "model_remains": [[
                     "end_time": 1_000.0,
@@ -176,7 +295,8 @@ enum MiniMaxProviderTests {
                 ]],
             ]
             let rows = MiniMaxProvider().parse(payload)
-            Harness.expectEqual(rows.map(\.label), ["5h"], "only the active window")
+            Harness.expectEqual(rows.map(\.label), ["5h", "7d"], "both windows")
+            Harness.expectEqual(rows.first { $0.label == "7d" }?.percent, 50, "7d percent")
         }),
         ("remaining percent is clamped so consumed stays inside 0...100", {
             let payload: [String: Any] = [
@@ -192,6 +312,35 @@ enum MiniMaxProviderTests {
             let rows = MiniMaxProvider().parse(payload)
             Harness.expectEqual(rows[0].percent, 100, "negative remaining clamps to fully used")
             Harness.expectEqual(rows[1].percent, 0, "over-100 remaining clamps to unused")
+        }),
+        ("an entry that omits one window's percent is still recognised", {
+            // The entry carries both windows' timestamps, so it describes a
+            // plan. Refusing it over a missing percentage would cost the
+            // window the payload does describe its row too.
+            let payload: [String: Any] = [
+                "model_remains": [[
+                    "end_time": 1_000.0,
+                    "weekly_end_time": 2_000.0,
+                    "current_interval_status": 1,
+                    "current_interval_remaining_percent": 50.0,
+                    "current_weekly_status": 2,
+                ]],
+            ]
+            let rows = MiniMaxProvider().parse(payload)
+            Harness.expectEqual(rows.map(\.label), ["5h", "7d"], "both windows")
+            Harness.expectEqual(rows.first { $0.label == "5h" }?.percent, 50, "5h percent")
+            Harness.expectEqual(rows.first { $0.label == "7d" }?.percent, 100, "7d percent")
+        }),
+        ("an entry with no window timestamps yields no rows", {
+            let payload: [String: Any] = [
+                "model_remains": [[
+                    "current_interval_status": 1,
+                    "current_interval_remaining_percent": 50.0,
+                    "current_weekly_status": 1,
+                    "current_weekly_remaining_percent": 50.0,
+                ]],
+            ]
+            Harness.expectEqual(MiniMaxProvider().parse(payload).count, 0, "no rows")
         }),
         ("an empty or unrecognised plan list yields no rows", {
             Harness.expectEqual(MiniMaxProvider().parse(["model_remains": []]).count, 0, "empty list")
