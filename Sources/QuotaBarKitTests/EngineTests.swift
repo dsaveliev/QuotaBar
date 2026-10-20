@@ -124,6 +124,22 @@ private let spentOut: @Sendable (URL, Int) -> QuotaFetchResult = { _, _ in
     ]))
 }
 
+/// MiniMax's weekly window spent: the endpoint says the plan is exhausted for
+/// that window while the five-hour one is untouched.
+private let minimaxWeeklyExhausted: @Sendable (URL, Int) -> QuotaFetchResult = { _, _ in
+    .success(payload: JSONPayload([
+        "model_remains": [[
+            "end_time": 1_700_000_600_000.0,
+            "weekly_end_time": 1_700_600_000_000.0,
+            "current_interval_status": 1,
+            "current_interval_remaining_percent": 100.0,
+            "current_weekly_status": 2,
+            "current_weekly_remaining_percent": 0.0,
+        ]],
+        "base_resp": ["status_code": 0],
+    ]))
+}
+
 private let rollingResetAt: @Sendable (URL, Int) -> QuotaFetchResult = { _, attempt in
     let resetAt = attempt < 2 ? 1_700_000_600_000.0 : 1_700_003_600_000.0
     return .success(payload: JSONPayload([
@@ -782,6 +798,47 @@ enum QuotaEngineTests {
             let measuringBlocked: Bool? = await windowMeasuring(fixture.engine, providerId: "zai")
             Harness.expectEqual(measuringBlocked, false, "exhaustion needs no history, so it never waits")
         }),
+        ("an exhausted MiniMax weekly window is blocked, not unknown", {
+            let fixture = await EngineFixture.make(
+                providers: [MiniMaxProvider()],
+                respond: minimaxWeeklyExhausted
+            )
+            await fixture.engine.refresh(providerId: "minimax")
+            let weekly = await window(fixture.engine, providerId: "minimax", label: "7d")
+            Harness.expectEqual(weekly?.verdict, .blocked, "the spent weekly window is blocked")
+            Harness.expectEqual(weekly?.percent, 100, "reported as fully consumed")
+            // Exhaustion needs no evidence, so it never waits for any.
+            Harness.expectEqual(weekly?.isMeasuring, false, "exhaustion needs no history")
+        }),
+        ("the menu bar reads an exhausted MiniMax weekly window as blocked", {
+            let fixture = await EngineFixture.make(
+                providers: [MiniMaxProvider()],
+                respond: minimaxWeeklyExhausted
+            )
+            await fixture.engine.refresh(providerId: "minimax")
+            let snapshot = fixture.published.snapshot(id: "minimax")
+            Harness.expectEqual(snapshot?.verdict, .blocked, "the subscription's verdict is blocked")
+            Harness.expect(
+                snapshot?.menuBarLabel().contains(Verdict.blocked.glyph) ?? false,
+                "the menu bar shows the blocked glyph"
+            )
+            // The five-hour window is untouched, and the spent one does not
+            // swallow it.
+            let fiveHour = await window(fixture.engine, providerId: "minimax", label: "5h")
+            Harness.expectEqual(fiveHour?.percent, 0, "the five-hour window is unaffected")
+        }),
+        ("an exhausted MiniMax weekly window keeps its reset and its duration", {
+            let fixture = await EngineFixture.make(
+                providers: [MiniMaxProvider()],
+                respond: minimaxWeeklyExhausted
+            )
+            await fixture.engine.refresh(providerId: "minimax")
+            let weekly = await window(fixture.engine, providerId: "minimax", label: "7d")
+            // The weekly window resets a week after the fixture's clock, and the
+            // engine reports the distance to it.
+            Harness.expectEqual(weekly?.resetInMs, 600_000_000.0, "the reset distance is carried")
+            Harness.expectEqual(weekly?.windowMs, 7 * 24 * 60 * 60 * 1000, "the window duration is carried")
+        }),
         ("the settings interval reaches the engine", {
             let fixture = await EngineFixture.make()
             await fixture.engine.apply(settings: Settings(intervalMs: 300_000))
@@ -802,6 +859,16 @@ private func code(of fixture: EngineFixture.Fixture, id: String) -> String? {
 
 private func windowState(_ engine: QuotaEngine, providerId: String) async -> Verdict? {
     await engine.snapshots().first { $0.id == providerId }?.windows.first?.verdict
+}
+
+/// One window of one subscription, named. A subscription with two windows has
+/// to be asked about the right one.
+private func window(
+    _ engine: QuotaEngine,
+    providerId: String,
+    label: String
+) async -> WindowSnapshot? {
+    await engine.snapshots().first { $0.id == providerId }?.windows.first { $0.label == label }
 }
 
 @MainActor

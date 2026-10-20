@@ -267,7 +267,7 @@ Four design notes worth knowing before changing things:
 
 ```sh
 swift build                 # compile
-swift run QuotaBarKitTests  # 149 cases
+swift run QuotaBarKitTests  # 158 cases
 ./scripts/install.sh        # build, install, register at login
 ```
 

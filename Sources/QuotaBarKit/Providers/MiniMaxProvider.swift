@@ -15,10 +15,11 @@ import Foundation
 ///   "base_resp": { "status_code": 0, "status_msg": "success" } }
 /// ```
 ///
-/// Two differences from Z.ai drive this parser: there is no `unit` field, so
-/// the window durations are the plan's declared 5h and 7d; and the plan is
+/// Three differences from Z.ai drive this parser: there is no `unit` field, so
+/// the window durations are the plan's declared 5h and 7d; the plan is
 /// percentage-of-time based, so the wire reports *remaining* percent, which is
-/// inverted to get consumed percent.
+/// inverted to get consumed percent; and each window carries a plan status,
+/// which says whether the plan meters a limit against that window at all.
 public struct MiniMaxProvider: QuotaProvider {
     public static let aliases = ["minimax", "minimax-coding-plan", "minimax-cn-coding-plan"]
 
@@ -63,17 +64,36 @@ public struct MiniMaxProvider: QuotaProvider {
 
     public func parse(_ payload: Any) -> [QuotaRow] {
         guard let root = JSON.dictionary(payload),
-              let entries = JSON.array(root["model_remains"]),
-              let entry = entries.compactMap(JSON.dictionary).first(where: isPlanEntry)
+              let entries = JSON.array(root["model_remains"])
         else { return [] }
 
+        // The first entry that describes a usable window wins. An entry that
+        // yields no row is skipped rather than ending the search, so it cannot
+        // shadow a later entry that does describe the plan.
+        for entry in entries.compactMap(JSON.dictionary) where isPlanEntry(entry) {
+            let rows = rows(from: entry)
+            if !rows.isEmpty { return RowOrder.sort(rows) }
+        }
+        return []
+    }
+
+    /// An entry carries a plan when it reports both windows' reset timestamps.
+    /// The remaining percents are not required: an exhausted window can omit
+    /// its percentage, and refusing the entry for that would cost the other
+    /// window its row too.
+    private func isPlanEntry(_ entry: [String: Any]) -> Bool {
+        return JSON.finiteNumber(entry["end_time"]) != nil
+            && JSON.finiteNumber(entry["weekly_end_time"]) != nil
+    }
+
+    private func rows(from entry: [String: Any]) -> [QuotaRow] {
         var rows: [QuotaRow] = []
         if let row = makeRow(
             label: "5h",
             resetAt: JSON.finiteNumber(entry["end_time"]),
             windowMs: Self.window5hMs,
             remainingPercent: JSON.finiteNumber(entry["current_interval_remaining_percent"]),
-            status: JSON.finiteNumber(entry["current_interval_status"])
+            status: PlanStatus(JSON.finiteNumber(entry["current_interval_status"]))
         ) {
             rows.append(row)
         }
@@ -82,32 +102,38 @@ public struct MiniMaxProvider: QuotaProvider {
             resetAt: JSON.finiteNumber(entry["weekly_end_time"]),
             windowMs: Self.window7dMs,
             remainingPercent: JSON.finiteNumber(entry["current_weekly_remaining_percent"]),
-            status: JSON.finiteNumber(entry["current_weekly_status"])
+            status: PlanStatus(JSON.finiteNumber(entry["current_weekly_status"]))
         ) {
             rows.append(row)
         }
-        return RowOrder.sort(rows)
-    }
-
-    private func isPlanEntry(_ entry: [String: Any]) -> Bool {
-        return JSON.finiteNumber(entry["end_time"]) != nil
-            && JSON.finiteNumber(entry["weekly_end_time"]) != nil
-            && JSON.finiteNumber(entry["current_interval_remaining_percent"]) != nil
-            && JSON.finiteNumber(entry["current_weekly_remaining_percent"]) != nil
+        return rows
     }
 
     /// Builds a percent-space row: `usage = 100 - remaining`, `limit = 100`, so
     /// the shared runway projection works in percent points per unit time.
+    ///
+    /// The plan status decides what the window reports. An exhausted window is
+    /// at its limit, so it is reported at 100 with the same limit of 100 - the
+    /// shared verdict ladder calls that blocked, which is the same route
+    /// Z.ai's exhausted window takes. An unlimited window has no limit to be
+    /// at and nothing to project, so it is not reported at all.
     private func makeRow(
         label: String,
         resetAt: EpochMillis?,
         windowMs: Double,
         remainingPercent: Double?,
-        status: Double?
+        status: PlanStatus
     ) -> QuotaRow? {
-        guard let remainingPercent, remainingPercent.isFinite else { return nil }
-        guard status == 1 else { return nil }  // 1 = active in plan
-        let usedPercent = min(100, max(0, 100 - remainingPercent))
+        let usedPercent: Double
+        switch status {
+        case .exhausted:
+            usedPercent = 100
+        case .limited:
+            guard let remainingPercent, remainingPercent.isFinite else { return nil }
+            usedPercent = min(100, max(0, 100 - remainingPercent))
+        case .unlimited:
+            return nil
+        }
         return QuotaRow(
             label: label,
             usage: usedPercent,
@@ -116,5 +142,29 @@ public struct MiniMaxProvider: QuotaProvider {
             resetAt: resetAt,
             windowMs: windowMs
         )
+    }
+}
+
+/// What the plan status says about one of a plan's windows.
+///
+/// The endpoint reports `1` for a limited window, `2` for an exhausted one,
+/// and `3` for an unlimited one. A status the endpoint does not define is
+/// read as limited: the percentage is still there, and a window that vanishes
+/// takes its quota off the screen with no way to tell it from a healthy one.
+private enum PlanStatus {
+    case limited
+    case exhausted
+    case unlimited
+
+    init(_ raw: Double?) {
+        guard let raw else {
+            self = .limited
+            return
+        }
+        switch raw {
+        case 2: self = .exhausted
+        case 3: self = .unlimited
+        default: self = .limited
+        }
     }
 }
